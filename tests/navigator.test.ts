@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SETTINGS_HASH } from '@/core/route';
 import { SettingsNavigator } from '@/features/settings-page/navigator';
@@ -117,26 +117,34 @@ describe('SettingsNavigator', () => {
     expect(navigator.isPending).toBe(false);
   });
 
-  it('adds the fragment without a new history entry, so Back returns to where they came from', () => {
+  it('adds the fragment with a fragment navigation, which the site’s router hears, not a silent history write', () => {
+    // With history.replaceState Inertia never learns of the fragment, and drops it on its next history write.
+    // `location.replace` also adds no history entry in real browsers, so Back returns to where they came from. Checked
+    // on the live site; happy-dom gets that part wrong, so it is not asserted here.
     const navigator = new SettingsNavigator();
-    const before = history.length;
+    const replaceState = vi.spyOn(history, 'replaceState');
+    const replaced: string[] = [];
+    const original = Object.getOwnPropertyDescriptor(Location.prototype, 'replace');
 
     navigator.openOn('/log/latest');
     renderSite({ layout: 'standard' });
-    navigator.settle();
+    Object.defineProperty(Location.prototype, 'replace', {
+      configurable: true,
+      value: (url: string) => {
+        replaced.push(url);
+      },
+    });
 
-    // One entry from the visit itself, none from opening the settings page.
-    expect(history.length).toBe(before + 1);
-  });
+    try {
+      navigator.settle();
+    } finally {
+      if (original !== undefined) {
+        Object.defineProperty(Location.prototype, 'replace', original);
+      }
+    }
 
-  it('keeps the site’s own history state', () => {
-    const navigator = new SettingsNavigator();
-
-    navigator.openOn('/log/latest');
-    renderSite({ layout: 'standard' });
-    navigator.settle();
-
-    expect(history.state).toEqual({ page: { component: 'log/show' } });
+    expect(replaced).toEqual([`/log/latest${SETTINGS_HASH}`]);
+    expect(replaceState).not.toHaveBeenCalled();
   });
 
   it('opens on whichever log the site redirects to', () => {

@@ -76,9 +76,12 @@ export class SettingsNavigator {
     this.#pending = null;
 
     if (!isSettingsRoute()) {
-      // Replace rather than push: the visit already added the entry, so Back returns to where they came from. Inertia's
-      // state is kept as it is, and it keeps the fragment on the URL through its own later visits.
-      history.replaceState(history.state, '', `${location.pathname}${location.search}${SETTINGS_HASH}`);
+      // A fragment navigation, not history.replaceState. It fires `popstate`, which is how Inertia learns about a new
+      // fragment and keeps it in its own copy of the URL; with replaceState Inertia never hears of it, and its next
+      // history write puts its own URL back without the fragment, closing the page again. `replace` rather than a push:
+      // the visit already added the entry, so Back returns to where they came from. It changes the URL synchronously,
+      // so the caller can show the page in the same frame.
+      location.replace(`${location.pathname}${location.search}${SETTINGS_HASH}`);
     }
   }
 }
