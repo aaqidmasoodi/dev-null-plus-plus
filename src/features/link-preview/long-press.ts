@@ -14,6 +14,8 @@ const SWALLOW_MS = 3_000;
 export interface LongPressOptions {
   /** Whether pressing should do anything right now, read at each press. */
   enabled: () => boolean;
+  /** A press on a previewable link began. It may be only a click: get ready, but change nothing visible. */
+  onPress?: () => void;
   /** The hold has lasted past a click: start growing the preview. */
   onGrow: (url: URL, origin: { x: number; y: number }, duration: number) => void;
   /** Let go, or moved away, before the preview was full size. */
@@ -102,6 +104,7 @@ export class LinkLongPress {
       timer: window.setTimeout(this.#startGrowing, GROW_DELAY_MS),
       growing: false,
     };
+    this.#options.onPress?.();
   };
 
   readonly #onPointerMove = (event: PointerEvent): void => {

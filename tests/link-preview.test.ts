@@ -242,17 +242,33 @@ describe('the preview', () => {
     expect(sandbox).not.toContain('allow-downloads');
   });
 
-  it('grows with the page already loading, and cannot be used until it settles', () => {
+  it('grows without contacting the site, which loads once it settles', () => {
     preview.grow(new URL('https://example.com/'), { x: 0, y: 0 }, GROW_MS);
 
     expect(preview.isOpen).toBe(true);
-    expect(frame()?.src).toBe('https://example.com/');
+    expect(frame()).toBeNull();
     expect(preview.dialog.hasAttribute('data-growing')).toBe(true);
+    expect(document.documentElement.hasAttribute(PREVIEW_OPEN_ATTRIBUTE)).toBe(false);
 
     preview.commit();
 
     expect(preview.dialog.hasAttribute('data-growing')).toBe(false);
     expect(preview.isOpen).toBe(true);
+    expect(frame()?.src).toBe('https://example.com/');
+    expect(document.documentElement.hasAttribute(PREVIEW_OPEN_ATTRIBUTE)).toBe(true);
+  });
+
+  it('with motion, loads the site only after settling', () => {
+    vi.useFakeTimers();
+    vi.spyOn(window, 'matchMedia').mockReturnValue({ matches: false } as MediaQueryList);
+    preview.grow(new URL('https://example.com/'), { x: 0, y: 0 }, GROW_MS);
+    preview.commit();
+
+    expect(frame()).toBeNull();
+
+    vi.advanceTimersByTime(GROW_MS);
+
+    expect(frame()?.src).toBe('https://example.com/');
   });
 
   it('shrinks away when the hold is let go early, leaving nothing behind', () => {

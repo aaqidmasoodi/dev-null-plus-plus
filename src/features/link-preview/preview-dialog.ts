@@ -32,6 +32,8 @@ type SizeLabel = (typeof SIZES)[number]['label'];
 const MIN_SIZE = 280;
 /** How small the preview starts when a hold begins, as a fraction of its full size. */
 const GROW_FROM = 0.08;
+/** The small pop as a completed hold settles into place. */
+const SETTLE_MS = 220;
 
 /**
  * The frame's sandbox. Pages can run, keep their own origin (so they work), submit forms and open real windows. They
@@ -78,6 +80,7 @@ export class PreviewDialog {
   /** The grow animations: the dialog and its backdrop. */
   #growth: Animation[] = [];
   #backstop = 0;
+  #loadTimer = 0;
 
   constructor() {
     for (const stray of document.querySelectorAll(ownedSelector(PREVIEW_ROLE))) {
@@ -183,10 +186,21 @@ export class PreviewDialog {
   }
 
   /**
-   * Starts growing the preview out of the pressed link, over `duration` ms, with the page already loading inside. It
-   * is not usable until {@link commit}; {@link cancel} shrinks it back as if nothing happened.
+   * Puts the (closed) dialog on the page, so its styles are ready before it has to grow. Called as a press begins,
+   * before it is known to be a hold; the first grow would otherwise stutter while they are worked out.
+   */
+  prepare(): void {
+    if (!this.#host.isConnected) {
+      document.body.append(this.#host);
+    }
+  }
+
+  /**
+   * Starts growing the preview out of the pressed link, over `duration` ms. It is not usable, and the page does not
+   * load, until {@link commit}; {@link cancel} shrinks it back as if nothing happened.
    */
   grow(url: URL, origin: { x: number; y: number }, duration: number): void {
+    this.prepare();
     this.#reset();
     this.#show(url);
     this.#phase = 'growing';
@@ -222,13 +236,32 @@ export class PreviewDialog {
     this.#phase = 'open';
     this.#dialog.removeAttribute('data-growing');
     this.#stopGrowth();
+    // Only now, not while growing: holding the page still makes it lay itself out again, which would cost frames.
+    this.#lockScroll(true);
 
-    if (!prefersReducedMotion()) {
-      this.#dialog.animate([{ transform: 'scale(1.012)' }, { transform: 'none' }], {
-        duration: 220,
-        easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
-      });
+    if (prefersReducedMotion()) {
+      this.#load();
+
+      return;
     }
+
+    const pop = this.#dialog.animate([{ transform: 'scale(1.012)' }, { transform: 'none' }], {
+      duration: SETTLE_MS,
+      easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
+    });
+
+    // The page starts loading once nothing is moving. Starting a page from another site briefly blocks the browser,
+    // which would stutter any animation running at the time. It also means a hold let go early never contacts the site.
+    const load = (): void => {
+      clearTimeout(this.#loadTimer);
+
+      if (this.#phase === 'open' && this.#frame === null) {
+        this.#load();
+      }
+    };
+
+    void pop.finished.then(load, () => undefined);
+    this.#loadTimer = window.setTimeout(load, SETTLE_MS + 50);
   }
 
   /** Let go too early: the preview shrinks back into the link and is gone. */
@@ -320,13 +353,8 @@ export class PreviewDialog {
     this.#openLink.href = url.href;
     this.#setSize('Desktop');
 
-    if (!this.#host.isConnected) {
-      document.body.append(this.#host);
-    }
-
-    this.#lockScroll(true);
+    this.prepare();
     this.#dialog.showModal();
-    this.#load();
   }
 
   /** Closes at once, and puts everything back as it was. */
@@ -342,6 +370,7 @@ export class PreviewDialog {
 
   #reset(): void {
     clearTimeout(this.#backstop);
+    clearTimeout(this.#loadTimer);
     this.#stopGrowth();
 
     for (const animation of this.#dialog.getAnimations()) {
@@ -545,7 +574,10 @@ export class PreviewDialog {
     }
 
     if (document.head.querySelector(ownedSelector(SCROLL_LOCK_ROLE)) === null) {
-      const style = el('style', {}, [`html[${PREVIEW_OPEN_ATTRIBUTE}] { overflow: hidden !important; }`]);
+      // The scrollbar's space is kept, so the log does not shift sideways, or reflow, as it is held still.
+      const style = el('style', {}, [
+        `html[${PREVIEW_OPEN_ATTRIBUTE}] { overflow: hidden !important; scrollbar-gutter: stable !important; }`,
+      ]);
 
       markOwned(style, SCROLL_LOCK_ROLE);
       document.head.append(style);
