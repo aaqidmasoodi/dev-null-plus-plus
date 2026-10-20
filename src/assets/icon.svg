@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- The dev/null++ logo. © 2026 Aaqid Masoodi. All rights reserved. Not covered by the MIT licence of the code; may
+       not be used outside dev/null++ without permission. See LOGO.md. -->
   <rect width="512" height="512" rx="112" fill="#111112"/>
-  <g fill="none" stroke="#7aa2f7" stroke-width="44" stroke-linecap="round">
-    <path d="M152 192v128M88 256h128"/>
-    <path d="M360 192v128M296 256h128"/>
-  </g>
+  <path fill="#ececec" d="M282.7 154L222.7 154L194.7 226L122.7 226L99.3 286L171.3 286L143.3 358L203.3 358Z"/>
+  <path fill="#ff8a4c" fill-rule="evenodd" d="M308.7 154L368.7 154L340.7 226L412.7 226L389.3 286L317.3 286L289.3 358L229.3 358ZM319.1 171L345.1 171L317.1 243L389.1 243L378.9 269L306.9 269L278.9 341L252.9 341Z"/>
 </svg>

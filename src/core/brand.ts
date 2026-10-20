@@ -1,5 +1,5 @@
 /**
- * The /dev/null logo, rebuilt from the site's own components so dev/null++ reads as part of it. Sources:
+ * dev/null++'s marks, built on the /dev/null logo so they read as part of the site. Sources:
  * resources/js/components/app-logo-icon.tsx and app-wordmark.tsx.
  *
  * The accent is the site's `--lane-0` token (orange, lighter in dark mode), with its light-mode value as a fallback.
@@ -8,12 +8,19 @@
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 const ACCENT = 'var(--lane-0, #d9480f)';
 
-/** The two-slash mark: a solid slash in the text color and an outlined one in the accent. */
+/**
+ * The dev/null++ mark: the site's two slashes, each with an arm reaching out so together they read as "++". A solid
+ * slash in the text color and an outlined one in the accent, as on the site. The same shape as the extension's icon
+ * (src/assets/icon.svg), in its own square box.
+ *
+ * © 2026 Aaqid Masoodi. All rights reserved. This mark is not covered by the MIT licence of the code and may not be
+ * used outside dev/null++ without permission. See LOGO.md.
+ */
 export function createLogoMark(className: string): SVGSVGElement {
   const svg = document.createElementNS(SVG_NAMESPACE, 'svg');
 
   svg.setAttribute('xmlns', SVG_NAMESPACE);
-  svg.setAttribute('viewBox', '1.6 1.5 45 45');
+  svg.setAttribute('viewBox', '0 0 313.3 313.3');
   svg.setAttribute('aria-hidden', 'true');
 
   if (className !== '') {
@@ -22,14 +29,18 @@ export function createLogoMark(className: string): SVGSVGElement {
 
   const solid = document.createElementNS(SVG_NAMESPACE, 'path');
 
-  solid.setAttribute('d', 'M2 42h10L26 6H16Z');
+  solid.setAttribute('d', 'M183.3 54.7L123.3 54.7L95.3 126.7L23.3 126.7L0 186.7L72 186.7L44 258.7L104 258.7Z');
   solid.setAttribute('fill', 'currentColor');
 
   const outlined = document.createElementNS(SVG_NAMESPACE, 'path');
 
   outlined.setAttribute('fill-rule', 'evenodd');
   outlined.setAttribute('clip-rule', 'evenodd');
-  outlined.setAttribute('d', 'M17.81 43.5h13.22L46.19 4.5H32.97ZM22.19 40.5l12.84-33h6.78l-12.84 33Z');
+  outlined.setAttribute(
+    'd',
+    'M209.3 54.7L269.3 54.7L241.3 126.7L313.3 126.7L290 186.7L218 186.7L190 258.7L130 258.7Z' +
+      'M219.7 71.7L245.7 71.7L217.7 143.7L289.7 143.7L279.6 169.7L207.6 169.7L179.6 241.7L153.6 241.7Z',
+  );
   outlined.style.fill = ACCENT;
 
   svg.append(solid, outlined);
