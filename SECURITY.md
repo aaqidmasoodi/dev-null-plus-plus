@@ -84,6 +84,13 @@ The extension has three parts, trusted in this order:
   anywhere. The tab is told only the failed page's address and why, and only shows a notice if that is the page its
   preview is showing.
 
+**Image peeks**
+
+- A peek is a copy of a picture already on the page, drawn from the same address in our own overlay. It loads nothing
+  new and sends nothing anywhere.
+- The site's own picture is hidden only by an animation while the copy is out, and never changed, so React's markup
+  is never touched.
+
 **Features**
 
 - Every feature can be turned off from the /dev/null++ settings page, and checks its setting before touching the page.

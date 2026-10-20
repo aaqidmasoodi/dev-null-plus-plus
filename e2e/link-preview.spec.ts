@@ -75,7 +75,8 @@ test('a quick click still opens the link as usual', async ({ context, page }) =>
 
   const opened = context.waitForEvent('page');
 
-  await hold(page, 80);
+  // A real click: press and release back to back. A timed hold can drift past a click on a slow machine.
+  await page.locator('#dnpp-test-link').click();
 
   expect((await opened).url()).toBe(TARGET);
   await expect(page.locator('[data-test="dnpp-link-preview"]')).toBeHidden();
