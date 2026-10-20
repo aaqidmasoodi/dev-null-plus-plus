@@ -349,10 +349,9 @@ describe.each([
     it('shows one at a time, and goes with the button', () => {
       composerAi.ensure();
 
-      const [commit, reply] = aiButtons();
-
-      commit && slotOf(commit).dispatchEvent(new Event('pointerenter'));
-      reply && slotOf(reply).dispatchEvent(new Event('pointerenter'));
+      for (const button of aiButtons()) {
+        slotOf(button).dispatchEvent(new Event('pointerenter'));
+      }
 
       expect(document.querySelectorAll('[data-dnpp="tooltip"]')).toHaveLength(1);
 
