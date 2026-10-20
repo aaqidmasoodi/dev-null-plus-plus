@@ -6,8 +6,10 @@ import { parseRewriteResult } from '@/core/ai';
 import { isContentMessage, isFromOwnBackground, type RewriteMessage } from '@/core/messages';
 import { writeSettings, type SettingsStore } from '@/core/settings';
 import { ComposerAi } from '@/features/ai-rewrite/composer-ai';
+import { AutoLoadNewCommits } from '@/features/auto-load/auto-load';
+import { autoLoadSection } from '@/features/auto-load/settings-section';
 import { aiSection } from '@/features/ai-rewrite/settings-section';
-import { loadExtensionState, type ExtensionState } from '@/features/ai-rewrite/state';
+import { loadExtensionState, type ExtensionState } from '@/core/extension-state';
 import {
   isSettingsRoute,
   moveSettingsRoute,
@@ -92,6 +94,7 @@ export default defineContentScript({
           frameUrl: browser.runtime.getURL('/vault.html'),
           signal: ctx.signal,
         }),
+        autoLoadSection({ store, saveSettings: writeSettings, signal: ctx.signal }),
       ],
     });
     const composerAi = new ComposerAi({
@@ -111,10 +114,20 @@ export default defineContentScript({
         logger.error('Could not update the composer.', error);
       }
     };
+    const autoLoad = new AutoLoadNewCommits({ store, signal: ctx.signal });
+    /** Loads new commits when their pill appears. Also separate, so a failure here touches nothing else. */
+    const syncAutoLoad = (): void => {
+      try {
+        autoLoad.ensure();
+      } catch (error) {
+        logger.error('Could not load new commits.', error);
+      }
+    };
 
     /** Brings everything in line with the URL and the DOM. Runs on every change of either, so it must stay cheap. */
     const sync = (): void => {
       syncComposer();
+      syncAutoLoad();
 
       try {
         settingsNavigator.settle();
@@ -142,7 +155,26 @@ export default defineContentScript({
     observeDom(sync, ctx.signal);
     store.subscribe(() => {
       syncComposer();
+      syncAutoLoad();
     }, ctx.signal);
+
+    // Reaching the top of the log loads commits that were waiting, and coming back to the tab looks again. Scroll is
+    // checked at most once a frame.
+    let scrollFrame = 0;
+
+    window.addEventListener(
+      'scroll',
+      () => {
+        if (scrollFrame === 0) {
+          scrollFrame = requestAnimationFrame(() => {
+            scrollFrame = 0;
+            syncAutoLoad();
+          });
+        }
+      },
+      { passive: true, signal: ctx.signal },
+    );
+    document.addEventListener('visibilitychange', syncAutoLoad, { signal: ctx.signal });
     observeAttributes(document.documentElement, LAYOUT_ATTRIBUTES, sync, ctx.signal);
     onRouteChange(sync, ctx.signal);
 
@@ -161,6 +193,7 @@ export default defineContentScript({
       navItem.destroy();
       settingsPage.destroy();
       composerAi.destroy();
+      autoLoad.destroy();
       removeTakeover();
     });
 

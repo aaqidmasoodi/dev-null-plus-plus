@@ -1,8 +1,9 @@
 import { el } from '@/core/dom';
 import type { Settings, SettingsStore } from '@/core/settings';
 import type { SettingsSection } from '@/features/settings-page/sections';
+import { createFeatureToggle } from '@/features/settings-page/toggle';
 
-import type { ExtensionState } from './state';
+import type { ExtensionState } from '@/core/extension-state';
 
 export interface AiSectionOptions {
   store: SettingsStore<ExtensionState>;
@@ -27,28 +28,13 @@ export function aiSection({ store, saveSettings, frameUrl, signal }: AiSectionOp
     description:
       'A button in the composer that rewrites your draft with the AI provider you choose. Your key stays in this browser, and your draft is only sent when you ask for a rewrite.',
     render: () => {
-      const options: { label: string; value: boolean }[] = [
-        { label: 'Off', value: false },
-        { label: 'On', value: true },
-      ];
-      const buttons = options.map(({ label, value }) => {
-        const button = el('button', { attrs: { type: 'button', role: 'radio' } }, [label]);
-
-        button.addEventListener('click', () => {
-          const current = store.value.settings;
-
-          if (current.features.aiRewrite !== value) {
-            void saveSettings({ ...current, features: { ...current.features, aiRewrite: value } });
-          }
-        });
-
-        return button;
+      const toggle = createFeatureToggle({
+        store,
+        saveSettings,
+        feature: 'aiRewrite',
+        label: 'Rewrite with AI',
+        signal,
       });
-      const toggle = el(
-        'div',
-        { className: 'segmented', attrs: { role: 'radiogroup', 'aria-label': 'Rewrite with AI' } },
-        buttons,
-      );
       const frame = el('iframe', {
         className: 'frame',
         attrs: { title: 'AI provider', referrerpolicy: 'no-referrer' },
@@ -58,9 +44,6 @@ export function aiSection({ store, saveSettings, frameUrl, signal }: AiSectionOp
       const update = (): void => {
         const enabled = store.value.settings.features.aiRewrite;
 
-        buttons.forEach((button, index) => {
-          button.setAttribute('aria-checked', String(options[index]?.value === enabled));
-        });
         frame.hidden = !enabled;
 
         // Load the frame in the site's current theme. Only reload it when the theme actually changed.

@@ -19,7 +19,7 @@ import type { SettingsStore } from '@/core/settings';
 import { composerMaxLength, findComposers, setComposerText, type ComposerParts } from '@/site/composer';
 
 import styles from './panel.css?inline';
-import type { ExtensionState } from './state';
+import type { ExtensionState } from '@/core/extension-state';
 import { SiteTooltip, TOOLTIP_ROLE } from './tooltip';
 
 export const AI_BUTTON_ROLE = 'ai-button';
@@ -456,7 +456,7 @@ class ComposerAiInstance {
     }
 
     const sweep =
-      'linear-gradient(100deg, transparent 30%, color-mix(in srgb, var(--primary) 14%, transparent) 50%, transparent 70%)';
+      'linear-gradient(100deg, transparent 30%, color-mix(in srgb, var(--primary, #3b6fe0) 14%, transparent) 50%, transparent 70%)';
 
     this.#animations = [
       textarea.animate(

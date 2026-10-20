@@ -13,6 +13,9 @@ Every feature can be switched off on the settings page.
 - **Rewrite with AI.** Connect Groq, OpenAI, Anthropic, xAI or Google Gemini with your own API key, and the composer
   gets an AI button next to its other tools. It opens a small panel to Improve, Shorten, Fix grammar, or make a draft
   more Casual or Professional, with Undo. Your key stays in this browser and is only sent to the provider you chose.
+- **Load new commits automatically.** When the log's "N new commits" pill appears, they load on their own, with a
+  short animation, exactly as if you had clicked it. Only while you are at the top of the log: further down, nothing
+  moves, and they load as soon as you scroll back up.
 
 ## Install (development build)
 
@@ -64,10 +67,12 @@ src/
     selectors.ts                Every assumption about dev-null.sh's markup, in one place
     takeover.ts                 Hides the site's page while ours shows
     composer.ts                 Finding the composers and writing into them
+    log.ts                      The log's new-commits pill and feed
   features/
     nav-item/                   The "/dev/null++" link in the left navigation
     settings-page/              The settings page it opens, built from sections
     ai-rewrite/                 The composer's AI button and panel, and its settings section
+    auto-load/                  Loading new commits when the log's pill appears
 ```
 
 A few rules keep this working while dev-null.sh deploys many times a day.

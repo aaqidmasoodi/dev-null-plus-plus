@@ -213,7 +213,7 @@ describe('prompt', () => {
 });
 
 describe('rewrite', () => {
-  const settings = (aiRewrite: boolean): Settings => ({ features: { aiRewrite } });
+  const settings = (aiRewrite: boolean): Settings => ({ features: { aiRewrite, autoLoadNewCommits: true } });
   const json = (value: unknown): Promise<string> => Promise.resolve(JSON.stringify(value));
   const dependencies = (overrides: Partial<RewriteDependencies> = {}): RewriteDependencies => ({
     readSettings: () => Promise.resolve(settings(true)),
@@ -512,7 +512,12 @@ describe('message and data validation', () => {
   it('reads settings and status defensively', () => {
     expect(parseSettings(undefined)).toEqual(DEFAULT_SETTINGS);
     expect(parseSettings({ features: { aiRewrite: 'yes' } })).toEqual(DEFAULT_SETTINGS);
-    expect(parseSettings({ features: { aiRewrite: false } })).toEqual({ features: { aiRewrite: false } });
+    expect(parseSettings({ features: { aiRewrite: false } })).toEqual({
+      features: { aiRewrite: false, autoLoadNewCommits: true },
+    });
+    expect(parseSettings({ features: { autoLoadNewCommits: false, unknown: true } })).toEqual({
+      features: { aiRewrite: true, autoLoadNewCommits: false },
+    });
     expect(parseAiStatus({ provider: 'openai', model: 'gpt-5' })).toEqual({ provider: 'openai', model: 'gpt-5' });
     expect(parseAiStatus({ provider: 'openai', model: 'bad model id!' })).toBeNull();
     expect(parseAiStatus({ provider: 'evil', model: 'gpt-5' })).toBeNull();

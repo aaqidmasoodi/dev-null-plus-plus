@@ -114,13 +114,14 @@ test.describe('settings', () => {
   test('the switch turns the feature off and hides the provider frame', async ({ page }) => {
     await page.goto(`${SITE}#dev-null-plus-plus`);
 
-    const off = page.getByRole('radio', { name: 'Off' });
+    const toggle = page.getByRole('radiogroup', { name: 'Rewrite with AI' });
+    const off = toggle.getByRole('radio', { name: 'Off' });
 
     await off.click();
     await expect(off).toHaveAttribute('aria-checked', 'true');
     await expect(page.locator('iframe[title="AI provider"]')).toBeHidden();
 
-    await page.getByRole('radio', { name: 'On' }).click();
+    await toggle.getByRole('radio', { name: 'On' }).click();
     await expect(page.locator('iframe[title="AI provider"]')).toBeVisible();
   });
 });
