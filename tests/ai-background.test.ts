@@ -373,6 +373,22 @@ describe('parseRewriteOutput', () => {
     expect(parseRewriteOutput('null')).toBeNull();
   });
 
+  it('keeps "unchanged" for pure keyboard mash, so short developer posts still get rewritten', () => {
+    const system = rewriteSystemPrompt(4000);
+
+    expect(system).toContain('only for pure keyboard mash');
+    expect(system).not.toContain('test string');
+    expect(system).toContain('"hello world"');
+    expect(system).toContain('{"status": "rewritten", "text": "Hello, world!"}');
+  });
+
+  it('softens swearing instead of refusing it', () => {
+    const system = rewriteSystemPrompt(4000);
+
+    expect(system).toContain('Swearing, insults and slurs');
+    expect(system).toContain('Never refuse because of the language.');
+  });
+
   it('asks for JSON in the prompt, with a gibberish example', () => {
     const system = rewriteSystemPrompt(4000);
 

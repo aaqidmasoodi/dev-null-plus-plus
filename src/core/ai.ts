@@ -155,7 +155,8 @@ export const REWRITE_ERROR_MESSAGES: Record<RewriteErrorCode, string> = {
   'not-configured': 'Add an API key in /dev/null++ settings first.',
   empty: 'Write something first.',
   'too-long': 'The rewrite came out too long. Try Shorten.',
-  'rate-limited': 'Too many rewrites in a row. Wait a moment and try again.',
+  'rate-limited':
+    'That is a lot of rewrites in one minute. /dev/null++ pauses here to protect your bill; try again shortly.',
   auth: 'The provider rejected your API key. Check it in /dev/null++ settings.',
   blocked:
     'The provider is refusing connections from your network, before checking the key. This often happens on a VPN: try turning it off, or use another provider.',

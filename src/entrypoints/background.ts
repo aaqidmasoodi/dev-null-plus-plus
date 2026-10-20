@@ -44,8 +44,11 @@ async function injectIntoOpenTabs(): Promise<void> {
   );
 }
 
-/** At most this many rewrites a minute, whatever asks for them. */
-const rewriteLimiter = new RateLimiter(10, 60_000);
+/**
+ * At most this many rewrites a minute, whatever asks for them. Room for trying several presets in a row, but a stuck
+ * button or a bug cannot run up the user's provider bill.
+ */
+const rewriteLimiter = new RateLimiter(30, 60_000);
 
 /**
  * Handles messages from our content script. Anything not from our own content script in the top frame of a
