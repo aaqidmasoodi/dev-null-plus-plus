@@ -12,8 +12,10 @@ import {
   settingsHref,
 } from '@/core/route';
 import { NavItem } from '@/features/nav-item/nav-item';
+import { SettingsNavigator } from '@/features/settings-page/navigator';
 import { aboutSection } from '@/features/settings-page/sections';
 import { SettingsPage } from '@/features/settings-page/settings-page';
+import { isPlainClick } from '@/site/navigate';
 import { findHomePath, isFullScreenLayout, LAYOUT_ATTRIBUTES } from '@/site/selectors';
 import { removeTakeover } from '@/site/takeover';
 
@@ -40,20 +42,41 @@ export default defineContentScript({
       logger.warn(`Could not confirm the page finished hydrating (${hydration}), starting anyway.`);
     }
 
-    const navItem = new NavItem({ href: SETTINGS_HASH });
-    const settingsPage = new SettingsPage({
-      sections: [aboutSection(browser.runtime.getManifest().version)],
-    });
-
     /**
      * Pages that fill the screen, like Remotes, have no room for the settings page, so there it opens on the log.
      * Returns the path to open it on, or `null` to open it in place.
      */
     const settingsElsewhere = (): string | null => (isFullScreenLayout() ? findHomePath() : null);
+    const settingsNavigator = new SettingsNavigator();
+    const openSettings = (): void => {
+      const elsewhere = settingsElsewhere();
+
+      if (elsewhere === null) {
+        openSettingsRoute(null);
+      } else {
+        settingsNavigator.openOn(elsewhere);
+      }
+    };
+
+    const navItem = new NavItem({
+      href: SETTINGS_HASH,
+      // In place, the link's own fragment does the job. Elsewhere, go through the site's router instead of a page load.
+      onClick: (event) => {
+        if (settingsElsewhere() !== null && isPlainClick(event)) {
+          event.preventDefault();
+          openSettings();
+        }
+      },
+    });
+    const settingsPage = new SettingsPage({
+      sections: [aboutSection(browser.runtime.getManifest().version)],
+    });
 
     /** Brings everything in line with the URL and the DOM. Runs on every change of either, so it must stay cheap. */
     const sync = (): void => {
       try {
+        settingsNavigator.settle();
+
         const elsewhere = settingsElsewhere();
         const onSettings = isSettingsRoute();
 
@@ -80,7 +103,7 @@ export default defineContentScript({
 
     const onMessage = (message: unknown, sender: Browser.runtime.MessageSender): undefined => {
       if (isFromOwnBackground(sender, browser.runtime.id) && isContentMessage(message)) {
-        openSettingsRoute(settingsElsewhere());
+        openSettings();
       }
 
       return undefined;

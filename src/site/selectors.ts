@@ -81,21 +81,25 @@ export function findMain(root: ParentNode = document): HTMLElement | null {
 /** Where the Log link falls back to if the nav cannot tell us. */
 const DEFAULT_HOME_PATH = '/log/latest';
 
-/**
- * The path of the user's log, from the site's Log link (the first in the nav), so it is the log they chose. Guests'
- * Log link points at the landing page, so anything that is not a log falls back to the latest log.
- */
-export function findHomePath(root: ParentNode = document): string {
+/** The site's Log link (the first in the nav), if it points at a log on this site. Guests' points at the landing page. */
+export function findHomeLink(root: ParentNode = document): HTMLAnchorElement | null {
   const nav = findMainNav(root);
   const link = nav === null ? undefined : navLinks(nav)[0];
 
   if (link === undefined) {
-    return DEFAULT_HOME_PATH;
+    return null;
   }
 
   const url = new URL(link.href, location.href);
 
-  return url.origin === location.origin && url.pathname.startsWith('/log/') ? url.pathname : DEFAULT_HOME_PATH;
+  return url.origin === location.origin && url.pathname.startsWith('/log/') ? link : null;
+}
+
+/** The path of the user's log, from the Log link, so it is the log they chose. Falls back to the latest log. */
+export function findHomePath(root: ParentNode = document): string {
+  const link = findHomeLink(root);
+
+  return link === null ? DEFAULT_HOME_PATH : new URL(link.href, location.href).pathname;
 }
 
 /**

@@ -108,6 +108,8 @@ export function buildNavItem(classes: ItemClasses, href: string): HTMLAnchorElem
 export interface NavItemOptions {
   /** Where the item links to at first. See {@link NavItem.setHref}. */
   href: string;
+  /** Called on every click before the browser follows the link. Call `preventDefault()` to handle it instead. */
+  onClick?: (event: MouseEvent) => void;
 }
 
 /**
@@ -117,18 +119,20 @@ export interface NavItemOptions {
  * every DOM change and puts the item back where it belongs if it went missing, moved, or ended up in a fresh nav. It
  * is idempotent and returns early in the common case where nothing changed.
  *
- * It is a plain link, so the browser handles the click, including opening it in a new tab.
+ * It is a plain link, so the browser handles the click, including opening it in a new tab, unless `onClick` takes it.
  */
 export class NavItem {
   #href: string;
+  readonly #onClick: ((event: MouseEvent) => void) | undefined;
   #element: HTMLAnchorElement | null = null;
   #classes: ItemClasses | null = null;
   #nav: HTMLElement | null = null;
   #anchor: HTMLAnchorElement | null = null;
   #active = false;
 
-  constructor({ href }: NavItemOptions) {
+  constructor({ href, onClick }: NavItemOptions) {
     this.#href = href;
+    this.#onClick = onClick;
   }
 
   get element(): HTMLAnchorElement | null {
@@ -155,6 +159,13 @@ export class NavItem {
       this.#element?.remove();
       this.#classes = readItemClasses(findLinkTemplate(nav), findActiveLink(nav));
       this.#element = buildNavItem(this.#classes, this.#href);
+
+      const onClick = this.#onClick;
+
+      if (onClick !== undefined) {
+        this.#element.addEventListener('click', onClick);
+      }
+
       this.#applyActive();
     }
 
