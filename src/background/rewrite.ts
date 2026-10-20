@@ -1,7 +1,7 @@
-import type { RewriteErrorCode, RewriteMode, RewriteResult } from '@/core/ai';
+import { hasContent, type RewriteErrorCode, type RewriteMode, type RewriteResult } from '@/core/ai';
 import type { Settings } from '@/core/settings';
 
-import { cleanRewrite, rewritePrompt, rewriteSystemPrompt } from './prompt';
+import { parseRewriteOutput, REWRITE_OUTPUT_SCHEMA, rewritePrompt, rewriteSystemPrompt } from './prompt';
 import { ProviderError, type CompletionRequest } from './providers';
 import type { AiCredential } from './vault';
 
@@ -65,7 +65,8 @@ export async function rewrite(request: RewriteRequest, dependencies: RewriteDepe
 
   const draft = request.text.trim();
 
-  if (draft === '') {
+  // Nothing with a letter or a digit in it never leaves the browser.
+  if (!hasContent(draft)) {
     return fail('empty');
   }
 
@@ -88,20 +89,37 @@ export async function rewrite(request: RewriteRequest, dependencies: RewriteDepe
       model: credential.model,
       system: rewriteSystemPrompt(request.maxLength),
       prompt: rewritePrompt(request.mode, draft, request.instruction),
+      schema: REWRITE_OUTPUT_SCHEMA,
     });
   } catch (error) {
     return fail(error instanceof ProviderError ? error.code : 'provider');
   }
 
-  const text = cleanRewrite(output);
+  const result = parseRewriteOutput(output);
 
-  if (text === null) {
+  if (result === null) {
     return fail('bad-output');
+  }
+
+  if (result.status === 'unchanged') {
+    return { ok: true, changed: false, reason: 'nothing' };
+  }
+
+  const text = result.text;
+
+  if (text === draft) {
+    return { ok: true, changed: false, reason: 'same' };
   }
 
   if (text.length > request.maxLength) {
     return fail('too-long');
   }
 
-  return { ok: true, text };
+  // A rewrite is about the draft's length. One that balloons, outside of the user's own instructions, is the model
+  // going off on its own, so it is rejected rather than pasted in.
+  if (request.mode !== 'custom' && text.length > Math.max(draft.length * 3, draft.length + 280)) {
+    return fail('bad-output');
+  }
+
+  return { ok: true, changed: true, text };
 }

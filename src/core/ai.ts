@@ -90,7 +90,27 @@ export type RewriteErrorCode =
   | 'bad-output'
   | 'provider';
 
-export type RewriteResult = { ok: true; text: string } | { ok: false; error: RewriteErrorCode };
+/**
+ * Why a draft was left as it was. `nothing`: there was nothing to work with, such as gibberish or random keys. `same`:
+ * the model had nothing to change, which happens with Fix grammar on a clean draft. The composer words these itself;
+ * nothing the model writes is ever shown except the rewrite.
+ */
+export type UnchangedReason = 'nothing' | 'same';
+
+export type RewriteResult =
+  | { ok: true; changed: true; text: string }
+  | { ok: true; changed: false; reason: UnchangedReason }
+  | { ok: false; error: RewriteErrorCode };
+
+export const UNCHANGED_MESSAGES: Record<UnchangedReason, string> = {
+  nothing: 'Nothing to rewrite here, so your draft was left as it is.',
+  same: 'Already reads well. Nothing changed.',
+};
+
+/** Whether a draft has anything in it worth sending: at least one letter or digit, in any script. */
+export function hasContent(text: string): boolean {
+  return /[\p{L}\p{N}]/u.test(text);
+}
 
 const REWRITE_ERROR_CODES: readonly RewriteErrorCode[] = [
   'disabled',
@@ -112,10 +132,14 @@ const REWRITE_ERROR_CODES: readonly RewriteErrorCode[] = [
 /** Checks a reply from the background before the composer trusts it. Anything malformed counts as a provider error. */
 export function parseRewriteResult(value: unknown): RewriteResult {
   if (typeof value === 'object' && value !== null) {
-    const { ok, text, error } = value as Record<string, unknown>;
+    const { ok, changed, text, reason, error } = value as Record<string, unknown>;
 
-    if (ok === true && typeof text === 'string' && text !== '' && text.length <= MAX_DRAFT_LENGTH) {
-      return { ok: true, text };
+    if (ok === true && changed === true && typeof text === 'string' && text !== '' && text.length <= MAX_DRAFT_LENGTH) {
+      return { ok: true, changed: true, text };
+    }
+
+    if (ok === true && changed === false && (reason === 'nothing' || reason === 'same')) {
+      return { ok: true, changed: false, reason };
     }
 
     if (ok === false && REWRITE_ERROR_CODES.includes(error as RewriteErrorCode)) {

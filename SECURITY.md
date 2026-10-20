@@ -62,8 +62,10 @@ The extension has three parts, trusted in this order:
 - Requests to providers omit credentials, refuse redirects and time out after 30 seconds. Rewrites are rate-limited in
   the background, so nothing on the page can run up your bill. Provider errors become fixed codes and never carry the
   key or the provider's raw reply.
-- What the model sends back goes into the composer as plain text, through the same path as typing, and is never
-  submitted for you. Your draft is fenced in the prompt so text in it cannot pose as instructions.
+- The model must answer in a fixed JSON shape (structured output where the provider supports it), and anything else
+  is discarded, so no commentary or stray text from the model ever reaches the composer. Only the rewrite itself goes
+  in, as plain text, through the same path as typing, and is never submitted for you. Every message the panel shows is
+  the extension's own. Your draft is fenced in the prompt so text in it cannot pose as instructions.
 - The logger redacts anything shaped like an API key or bearer token, and drops stacks.
 - Only what a feature needs leaves the browser, only to the provider you configured, and only when you act.
 

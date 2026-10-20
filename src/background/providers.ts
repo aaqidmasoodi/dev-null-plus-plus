@@ -83,8 +83,19 @@ export class ProviderError extends Error {
   }
 }
 
+/** A model that does not take JSON mode. Internal: the request is retried without it, never shown to the user. */
+class JsonModeUnsupported extends ProviderError {
+  constructor() {
+    super('provider');
+  }
+}
+
 function errorForStatus(status: number, body: unknown): ProviderError {
   const text = JSON.stringify(body ?? '').toLowerCase();
+
+  if (status === 400 && /response_format|json_object|json mode/.test(text)) {
+    return new JsonModeUnsupported();
+  }
 
   // Groq answers a blocked network (VPNs, datacenters) with 403 "Access denied. Please check your network settings."
   // before it looks at the key, so that must not read as a bad key.
@@ -273,13 +284,15 @@ export interface CompletionRequest {
   model: string;
   system: string;
   prompt: string;
+  /** A JSON schema the reply must follow. Enforced where the provider supports it, and always checked afterwards. */
+  schema: Record<string, unknown>;
 }
 
 /** Models that take `output_config.effort` and the server-side refusal fallback. Older ones reject both. */
 const ANTHROPIC_EFFORT_MODELS = /^claude-(opus-5|opus-4-[678]|sonnet-5|sonnet-4-6|haiku-5|fable-5)/;
 const ANTHROPIC_FALLBACK_MODELS = /^claude-(opus-5-5|opus-5|fable-5-1|sonnet-5-5)$/;
 
-async function completeWithAnthropic({ apiKey, model, system, prompt }: CompletionRequest): Promise<string> {
+async function completeWithAnthropic({ apiKey, model, system, prompt, schema }: CompletionRequest): Promise<string> {
   const fallback = ANTHROPIC_FALLBACK_MODELS.test(model);
   let response: Anthropic.Beta.BetaMessage;
 
@@ -289,8 +302,11 @@ async function completeWithAnthropic({ apiKey, model, system, prompt }: Completi
       max_tokens: 4096,
       system,
       messages: [{ role: 'user', content: prompt }],
-      // A short rewrite needs little deliberation, so keep it quick and cheap.
-      ...(ANTHROPIC_EFFORT_MODELS.test(model) ? { output_config: { effort: 'low' as const } } : {}),
+      // Current models: keep a short rewrite quick and cheap, and hold the reply to the schema with structured outputs.
+      // Older models take neither and rely on the prompt, with the reply checked all the same.
+      ...(ANTHROPIC_EFFORT_MODELS.test(model)
+        ? { output_config: { effort: 'low' as const, format: { type: 'json_schema' as const, schema } } }
+        : {}),
       // If the model declines on a safety classifier, let the API retry on a suitable fallback model in the same call.
       ...(fallback ? { betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' as const } : {}),
     });
@@ -313,17 +329,32 @@ async function completeWithOpenAiCompatible({ provider, apiKey, model, system, p
     throw new ProviderError('provider');
   }
 
-  const body = await requestJson(`${OPENAI_COMPATIBLE_BASE[provider]}/chat/completions`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: prompt },
-      ],
-    }),
-  });
+  const send = (jsonMode: boolean): Promise<unknown> =>
+    requestJson(`${OPENAI_COMPATIBLE_BASE[provider]}/chat/completions`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: prompt },
+        ],
+        // JSON mode makes the model answer with a JSON object, which every one of these providers supports for most
+        // models. The exact shape is the prompt's job and is checked afterwards.
+        ...(jsonMode ? { response_format: { type: 'json_object' } } : {}),
+      }),
+    });
+  let body: unknown;
+
+  try {
+    body = await send(true);
+  } catch (error) {
+    if (!(error instanceof JsonModeUnsupported)) {
+      throw error;
+    }
+
+    body = await send(false);
+  }
   const choice = typeof body === 'object' && body !== null ? (body as { choices?: unknown }).choices : undefined;
   const first: unknown = Array.isArray(choice) ? choice[0] : undefined;
   const message = typeof first === 'object' && first !== null ? (first as { message?: unknown }).message : undefined;

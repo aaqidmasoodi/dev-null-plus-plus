@@ -58,7 +58,7 @@ describe.each([
     document.body.innerHTML = composersHtml({ wrapped });
     store = new SettingsStore(connected);
     request = vi.fn<RewriteRequester>(() =>
-      Promise.resolve<RewriteResult>({ ok: true, text: 'Shipped the new parser.' }),
+      Promise.resolve<RewriteResult>({ ok: true, changed: true, text: 'Shipped the new parser.' }),
     );
     composerAi = new ComposerAi({ store, request });
   });
@@ -266,6 +266,33 @@ describe.each([
 
     expect(request).not.toHaveBeenCalled();
     expect(panel()?.textContent).toContain('Write something first.');
+  });
+
+  it('sends nothing for a draft with no letters or digits', () => {
+    composerAi.ensure();
+    setComposerText(commitTextarea(), '... !!!');
+    commitButton().click();
+    preset('Improve')?.click();
+
+    expect(request).not.toHaveBeenCalled();
+    expect(panel()?.textContent).toContain('Write something first.');
+  });
+
+  it.each([
+    ['nothing', 'Nothing to rewrite here'],
+    ['same', 'Already reads well'],
+  ] as const)('leaves the draft alone and says so in its own words (%s)', async (reason, message) => {
+    request.mockResolvedValueOnce({ ok: true, changed: false, reason });
+    composerAi.ensure();
+    setComposerText(commitTextarea(), 'asdfasdf');
+    commitButton().click();
+    preset('Improve')?.click();
+    await settle();
+
+    expect(commitTextarea().value).toBe('asdfasdf');
+    expect(commitTextarea().readOnly).toBe(false);
+    expect(panel()?.querySelector('.status')?.textContent).toContain(message);
+    expect(panel()?.textContent).not.toContain('Undo');
   });
 
   it('comes back when React re-renders the toolbar', () => {

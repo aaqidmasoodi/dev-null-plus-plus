@@ -1,13 +1,16 @@
 import {
+  hasContent,
   MAX_DRAFT_LENGTH,
   MAX_INSTRUCTION_LENGTH,
   PRESET_LABELS,
   PRESET_MODES,
   REWRITE_ERROR_MESSAGES,
+  UNCHANGED_MESSAGES,
   type PresetMode,
   type RewriteErrorCode,
   type RewriteMode,
   type RewriteResult,
+  type UnchangedReason,
 } from '@/core/ai';
 import { EXTENSION_NAME } from '@/core/constants';
 import { createSvgIcon, el, markOwned, ownedSelector } from '@/core/dom';
@@ -70,6 +73,7 @@ type Status =
   | { kind: 'idle' }
   | { kind: 'busy'; mode: RewriteMode }
   | { kind: 'done' }
+  | { kind: 'unchanged'; reason: UnchangedReason }
   | { kind: 'error'; error: RewriteErrorCode };
 
 export interface RewriteRequest {
@@ -321,6 +325,9 @@ class ComposerAiInstance {
         this.#status.classList.add('busy');
         this.#status.replaceChildren('Rewriting…');
         break;
+      case 'unchanged':
+        this.#status.replaceChildren(UNCHANGED_MESSAGES[state.reason]);
+        break;
       case 'done': {
         const undo = el('button', { className: 'link', attrs: { type: 'button' } }, ['Undo']);
 
@@ -351,7 +358,7 @@ class ComposerAiInstance {
     const textarea = this.#parts.textarea;
     const draft = textarea.value;
 
-    if (draft.trim() === '') {
+    if (!hasContent(draft)) {
       this.#setState({ kind: 'error', error: 'empty' });
       textarea.focus();
 
@@ -390,6 +397,13 @@ class ComposerAiInstance {
 
     if (!result.ok) {
       this.#setState({ kind: 'error', error: result.error });
+
+      return;
+    }
+
+    if (!result.changed) {
+      // The draft stays exactly as the user left it, and the panel says why in its own words.
+      this.#setState({ kind: 'unchanged', reason: result.reason });
 
       return;
     }

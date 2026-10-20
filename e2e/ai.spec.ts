@@ -18,12 +18,15 @@ const FIXTURE = 'https://dev-null.sh/__dnpp-test/composer';
 
 interface FakeProvider {
   completions: Request[];
-  reply: (text: string | { status: number }) => void;
+  /** The next reply: a rewrite, `unchanged`, or an HTTP error. */
+  reply: (next: Reply) => void;
 }
+
+type Reply = { rewritten: string } | 'unchanged' | { status: number };
 
 async function fakeOpenAi(context: BrowserContext): Promise<FakeProvider> {
   const completions: Request[] = [];
-  let next: string | { status: number } = 'Shipped the new parser.';
+  let next: Reply = { rewritten: 'Shipped the new parser.' };
 
   await context.route('https://api.openai.com/v1/models', (route) =>
     route.fulfill({ json: { data: [{ id: 'gpt-5-mini' }, { id: 'gpt-5' }, { id: 'text-embedding-3-small' }] } }),
@@ -31,15 +34,21 @@ async function fakeOpenAi(context: BrowserContext): Promise<FakeProvider> {
   await context.route('https://api.openai.com/v1/chat/completions', (route) => {
     completions.push(route.request());
 
-    return typeof next === 'string'
-      ? route.fulfill({ json: { choices: [{ message: { content: next } }] } })
-      : route.fulfill({ status: next.status, json: { error: { message: `Bad key ${KEY}` } } });
+    if (typeof next === 'object' && 'status' in next) {
+      return route.fulfill({ status: next.status, json: { error: { message: `Bad key ${KEY}` } } });
+    }
+
+    // A real provider answers in the JSON shape the prompt asks for.
+    const content =
+      next === 'unchanged' ? { status: 'unchanged', text: '' } : { status: 'rewritten', text: next.rewritten };
+
+    return route.fulfill({ json: { choices: [{ message: { content: JSON.stringify(content) } }] } });
   });
 
   return {
     completions,
-    reply: (text) => {
-      next = text;
+    reply: (reply) => {
+      next = reply;
     },
   };
 }
@@ -145,10 +154,15 @@ test.describe('composer', () => {
     expect(provider.completions).toHaveLength(1);
 
     const sent = provider.completions[0];
-    const body = sent?.postDataJSON() as { model: string; messages: { role: string; content: string }[] };
+    const body = sent?.postDataJSON() as {
+      model: string;
+      messages: { role: string; content: string }[];
+      response_format?: unknown;
+    };
 
     expect(sent?.headers().authorization).toBe(`Bearer ${KEY}`);
     expect(body.model).toBe('gpt-5-mini');
+    expect(body.response_format).toEqual({ type: 'json_object' });
     expect(body.messages[1]?.content).toContain('<draft>\nshipd the new parser lol\n</draft>');
     expect(await page.content()).not.toContain(KEY);
 
@@ -180,6 +194,25 @@ test.describe('composer', () => {
 
     await page.mouse.move(0, 0);
     await expect(tooltip).toBeHidden();
+  });
+
+  test('leaves gibberish alone and says so, without any of the model’s words', async ({
+    page,
+    context,
+    background,
+  }) => {
+    const provider = await fakeOpenAi(context);
+
+    await serveComposerFixture(context);
+    await connect(context, background);
+    provider.reply('unchanged');
+    await page.goto(FIXTURE);
+    await commitDraft(page).fill('asdfasdf');
+    await aiButton(page).click();
+    await page.getByRole('button', { name: 'Improve' }).click();
+
+    await expect(page.getByText('Nothing to rewrite here')).toBeVisible();
+    await expect(commitDraft(page)).toHaveValue('asdfasdf');
   });
 
   test('explains a rejected key without leaking it', async ({ page, context, background }) => {
