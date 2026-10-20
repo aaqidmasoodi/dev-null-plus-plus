@@ -10,27 +10,36 @@ export interface Settings {
   features: {
     /** The AI rewrite button in the composer. */
     aiRewrite: boolean;
+    /** Loading new commits as soon as the log's "N new commits" pill appears. */
+    autoLoadNewCommits: boolean;
   };
 }
+
+export type FeatureName = keyof Settings['features'];
 
 export const SETTINGS_KEY = 'settings';
 
 export const DEFAULT_SETTINGS: Settings = {
   features: {
     aiRewrite: true,
+    autoLoadNewCommits: true,
   },
 };
 
 export function parseSettings(value: unknown): Settings {
-  const features = typeof value === 'object' && value !== null ? (value as { features?: unknown }).features : undefined;
-  const aiRewrite =
-    typeof features === 'object' && features !== null ? (features as { aiRewrite?: unknown }).aiRewrite : undefined;
+  const stored = typeof value === 'object' && value !== null ? (value as { features?: unknown }).features : undefined;
+  const features = { ...DEFAULT_SETTINGS.features };
 
-  return {
-    features: {
-      aiRewrite: typeof aiRewrite === 'boolean' ? aiRewrite : DEFAULT_SETTINGS.features.aiRewrite,
-    },
-  };
+  // Only known switches, and only real booleans; anything else keeps its default.
+  for (const name of Object.keys(features) as FeatureName[]) {
+    const flag = typeof stored === 'object' && stored !== null ? (stored as Record<string, unknown>)[name] : undefined;
+
+    if (typeof flag === 'boolean') {
+      features[name] = flag;
+    }
+  }
+
+  return { features };
 }
 
 export async function readSettings(): Promise<Settings> {

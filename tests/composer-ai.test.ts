@@ -3,13 +3,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RewriteResult } from '@/core/ai';
 import { SettingsStore } from '@/core/settings';
 import { ComposerAi, type RewriteRequester } from '@/features/ai-rewrite/composer-ai';
-import type { ExtensionState } from '@/features/ai-rewrite/state';
+import type { ExtensionState } from '@/core/extension-state';
 import { findComposers, setComposerText } from '@/site/composer';
 
 import { composersHtml } from './fixtures/site';
 
 const connected: ExtensionState = {
-  settings: { features: { aiRewrite: true } },
+  settings: { features: { aiRewrite: true, autoLoadNewCommits: true } },
   ai: { provider: 'groq', model: 'llama-3.3-70b-versatile' },
 };
 
@@ -142,14 +142,14 @@ describe.each([
     composerAi.ensure();
     expect(aiButtons()).toHaveLength(0);
 
-    store.set({ ...connected, settings: { features: { aiRewrite: false } } });
+    store.set({ ...connected, settings: { features: { aiRewrite: false, autoLoadNewCommits: true } } });
     composerAi.ensure();
     expect(aiButtons()).toHaveLength(0);
   });
 
   it('removes its buttons, wrappers included, when the feature is turned off', () => {
     composerAi.ensure();
-    store.set({ ...connected, settings: { features: { aiRewrite: false } } });
+    store.set({ ...connected, settings: { features: { aiRewrite: false, autoLoadNewCommits: true } } });
     composerAi.ensure();
 
     expect(aiButtons()).toHaveLength(0);

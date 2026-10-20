@@ -19,7 +19,7 @@ import type { SettingsStore } from '@/core/settings';
 import { composerMaxLength, findComposers, setComposerText, type ComposerParts } from '@/site/composer';
 
 import styles from './panel.css?inline';
-import type { ExtensionState } from './state';
+import type { ExtensionState } from '@/core/extension-state';
 import { SiteTooltip, TOOLTIP_ROLE } from './tooltip';
 
 export const AI_BUTTON_ROLE = 'ai-button';

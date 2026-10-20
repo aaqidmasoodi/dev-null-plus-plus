@@ -1,0 +1,83 @@
+/*
+ * Our stand-in for the log's "N new commits" pill while it loads them (resources/js/pages/log/show.tsx): the same
+ * `rounded-full bg-primary px-4 py-1.5 text-sm font-medium text-primary-foreground` button with its soft shadow. It
+ * sits exactly over the site's pill, in a shadow root on <body>, and reads the site's theme tokens.
+ */
+
+:host {
+  position: fixed;
+  z-index: 11;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+.pill {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 1rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--primary, LinkText);
+  box-shadow: 0 4px 14px -4px rgb(0 0 0 / 0.35);
+  color: var(--primary-foreground, Canvas);
+  font-family: var(--font-geist, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.25rem;
+  white-space: nowrap;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: background 150ms;
+}
+
+.pill:hover:not(:disabled) {
+  background: var(--primary-hover, var(--primary, LinkText));
+}
+
+.pill:focus-visible {
+  outline: 2px solid var(--ring, Highlight);
+  outline-offset: 2px;
+}
+
+/* While fetching it is a status, not a control. */
+.pill:disabled {
+  cursor: default;
+  pointer-events: none;
+}
+
+.icon {
+  display: grid;
+  width: 1rem;
+  height: 1rem;
+  flex: none;
+  place-items: center;
+}
+
+.icon svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.spinner {
+  width: 0.875rem;
+  height: 0.875rem;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 999px;
+  animation: spin 700ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 2s;
+  }
+}

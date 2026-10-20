@@ -145,3 +145,69 @@ export function composersHtml({ wrapped = true }: { wrapped?: boolean } = {}): s
       </div>
     </form>`;
 }
+
+/**
+ * A log page, trimmed from resources/js/pages/log/show.tsx as rendered on 2026-10-20: the sticky "N new commits" pill
+ * (when `count` is above zero) and the feed of commits, each with a reply nested inside it.
+ */
+export function logHtml({ count = 0, ids = ['c3', 'c2', 'c1'] }: { count?: number; ids?: string[] } = {}): string {
+  const pill =
+    count > 0
+      ? `<div class="pointer-events-none sticky z-10 flex h-0 items-start justify-center">
+          <button type="button" class="pointer-events-auto mt-3 flex items-center gap-1.5 rounded-full bg-primary"><svg class="lucide lucide-arrow-up size-4"></svg>${String(count)} ${count === 1 ? 'new commit' : 'new commits'}</button>
+        </div>`
+      : '';
+  const rows = ids
+    .map(
+      (id) =>
+        `<article data-commit="${id}"><p>Commit ${id}</p><div data-reply data-commit="${id}-reply">A reply</div></article>`,
+    )
+    .join('');
+
+  return `
+    <div id="app">
+      <main data-main>
+        <div data-nav-content>
+          <div class="sticky top-0">Tabs</div>
+          ${pill}
+          <div class="feed">${rows}</div>
+        </div>
+      </main>
+    </div>`;
+}
+
+/**
+ * Stands in for the site's pill handler: like `router.reload`, it swaps in the newest page with the new commits on top,
+ * drops the pill, and tells everyone the visit finished.
+ */
+export function respondToPillLikeTheSite(newIds: string[]): () => void {
+  const onClick = (event: Event): void => {
+    const button = (event.target as Element).closest('button');
+
+    if (button === null || !/new commits?/.test(button.textContent)) {
+      return;
+    }
+
+    queueMicrotask(() => {
+      const feed = document.querySelector('.feed');
+
+      for (const id of [...newIds].reverse()) {
+        const row = document.createElement('article');
+
+        row.dataset.commit = id;
+        row.textContent = `Commit ${id}`;
+        feed?.prepend(row);
+      }
+
+      button.parentElement?.remove();
+      document.dispatchEvent(new CustomEvent('inertia:navigate'));
+      document.dispatchEvent(new CustomEvent('inertia:finish'));
+    });
+  };
+
+  document.addEventListener('click', onClick);
+
+  return () => {
+    document.removeEventListener('click', onClick);
+  };
+}
