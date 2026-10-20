@@ -16,6 +16,10 @@ Every feature can be switched off on the settings page.
 - **Load new commits automatically.** When the log's "N new commits" pill appears, they load on their own, with a
   short animation, exactly as if you had clicked it. Only while you are at the top of the log: further down, nothing
   moves, and they load as soon as you scroll back up.
+- **Link preview.** Press and hold a link to someone's project and it grows out of the link into a large window over
+  the log, with phone, tablet and desktop widths and resizable edges. Let go early and it shrinks back. It opens like a
+  private window: none of your cookies or logins. Sites known to refuse being shown inside another page, like GitHub
+  or X, stay plain links. A normal click is unchanged.
 
 ## Install (development build)
 
@@ -68,11 +72,13 @@ src/
     takeover.ts                 Hides the site's page while ours shows
     composer.ts                 Finding the composers and writing into them
     log.ts                      The log's new-commits pill and feed
+    links.ts                    Which links can be previewed
   features/
     nav-item/                   The "/dev/null++" link in the left navigation
     settings-page/              The settings page it opens, built from sections
     ai-rewrite/                 The composer's AI button and panel, and its settings section
     auto-load/                  Loading new commits when the log's pill appears
+    link-preview/               Press and hold a link to preview it in a private window
 ```
 
 A few rules keep this working while dev-null.sh deploys many times a day.
@@ -108,6 +114,8 @@ follows.
 - `https://dev-null.sh/*`: to run on dev-null.sh, and nowhere else.
 - `scripting`: to start in tabs that were already open when the extension was installed or updated.
 - `storage`: to remember your settings and which AI provider is connected (never the key itself).
+- `webNavigation`: to know when a link preview's page refuses to be shown, so it can say so plainly. Chrome lists it
+  as "Read your browsing history"; it is only ever read for frames inside dev-null.sh, and nothing is kept.
 - `https://api.groq.com/*`, optional: asked for only when you connect Groq, whose API does not otherwise allow
   extensions to call it, and given back when you disconnect.
 

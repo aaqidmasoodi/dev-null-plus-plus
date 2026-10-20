@@ -14,7 +14,7 @@ test('asks for no more permissions than it needs', async ({ background }) => {
     ).chrome.runtime.getManifest(),
   );
 
-  expect(manifest.permissions).toEqual(['scripting', 'storage']);
+  expect(manifest.permissions).toEqual(['scripting', 'storage', 'webNavigation']);
   expect(manifest.host_permissions).toEqual(['https://dev-null.sh/*']);
   expect(manifest.optional_permissions ?? []).toEqual([]);
   // Only Groq, which does not answer CORS, and only when the user chooses it.

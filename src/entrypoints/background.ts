@@ -1,3 +1,4 @@
+import { watchFrameFailures } from '@/background/frame-failures';
 import { complete } from '@/background/providers';
 import { RateLimiter, rewrite } from '@/background/rewrite';
 import { readAiCredential } from '@/background/vault';
@@ -80,6 +81,7 @@ function onMessage(
 
 export default defineBackground(() => {
   browser.runtime.onMessage.addListener(onMessage);
+  watchFrameFailures();
 
   browser.runtime.onInstalled.addListener(({ reason }) => {
     if (reason === 'install' || reason === 'update') {

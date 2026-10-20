@@ -25,7 +25,8 @@ export default defineConfig({
       default_title: '/dev/null++',
     },
     // Least privilege: only what is needed, and only on dev-null.sh. The e2e suite fails if this list grows.
-    permissions: ['scripting', 'storage'],
+    // `webNavigation` tells a link preview that its page refused to be shown; it is only read for frames on dev-null.sh.
+    permissions: ['scripting', 'storage', 'webNavigation'],
     host_permissions: [SITE_HOST_PERMISSION],
     optional_host_permissions: OPTIONAL_HOST_PERMISSIONS,
     // Only the key-entry page, only to dev-null.sh, and under a per-session URL so sites cannot probe for the extension.

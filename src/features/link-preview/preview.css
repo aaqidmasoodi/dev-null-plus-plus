@@ -1,0 +1,335 @@
+/*
+ * The link preview: a large dialog over a dimmed dev-null.sh. It lives in a shadow root on <body> and reads the site's
+ * theme tokens, so it matches light and dark mode. Card, border and radius follow the site's dialogs.
+ */
+
+:host {
+  all: initial;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+dialog {
+  --margin-x: clamp(12px, 4vw, 56px);
+  --margin-y: clamp(12px, 4vh, 44px);
+
+  display: flex;
+  width: calc(100vw - 2 * var(--margin-x));
+  max-width: none;
+  height: calc(100dvh - 2 * var(--margin-y));
+  max-height: none;
+  flex-direction: column;
+  margin: auto;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border, GrayText);
+  border-radius: calc(var(--radius, 0.5rem) * 1.5);
+  background: var(--card, Canvas);
+  box-shadow: 0 32px 80px -24px rgb(0 0 0 / 0.55);
+  color: var(--foreground, CanvasText);
+  font-family: var(--font-geist, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+dialog:not([open]) {
+  display: none;
+}
+
+/* While it grows under a held pointer, it is only a picture of what is coming: nothing in it can be used yet. */
+dialog[data-growing] {
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+dialog::backdrop {
+  background: rgb(0 0 0 / 0.5);
+}
+
+/* The toolbar. */
+
+.bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.5rem;
+  height: 2.75rem;
+  padding: 0 0.5rem 0 0.875rem;
+  border-bottom: 1px solid var(--border, GrayText);
+}
+
+.address {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.address svg {
+  width: 0.875rem;
+  height: 0.875rem;
+  flex: none;
+  color: var(--muted-foreground, GrayText);
+}
+
+.host {
+  flex: none;
+  font-weight: 500;
+}
+
+.path {
+  overflow: hidden;
+  color: var(--muted-foreground, GrayText);
+  font-family: var(--font-geist-mono, ui-monospace, monospace);
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sizes {
+  display: inline-flex;
+  flex: none;
+  gap: 0.125rem;
+  padding: 0.125rem;
+  border: 1px solid var(--border, GrayText);
+  border-radius: var(--radius, 0.5rem);
+}
+
+.sizes button {
+  height: 1.625rem;
+  padding: 0 0.625rem;
+  font-size: 0.75rem;
+}
+
+.sizes button[aria-pressed='true'] {
+  background: var(--primary-soft, var(--accent, transparent));
+  color: var(--primary, LinkText);
+}
+
+.actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.125rem;
+}
+
+button,
+a.action {
+  display: inline-grid;
+  height: 2rem;
+  min-width: 2rem;
+  place-items: center;
+  padding: 0 0.5rem;
+  border: 0;
+  border-radius: calc(var(--radius, 0.5rem) - 2px);
+  background: transparent;
+  color: var(--muted-foreground, GrayText);
+  font: inherit;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background 150ms,
+    color 150ms;
+}
+
+button:hover,
+a.action:hover {
+  background: var(--accent, transparent);
+  color: var(--foreground, CanvasText);
+}
+
+button:focus-visible,
+a.action:focus-visible {
+  outline: 2px solid var(--ring, Highlight);
+  outline-offset: 1px;
+}
+
+button svg,
+a.action svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.copied {
+  color: var(--primary, LinkText);
+}
+
+/* The stage, where the page sits at the chosen size. */
+
+.stage {
+  position: relative;
+  display: grid;
+  min-height: 0;
+  flex: 1;
+  place-items: center;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--muted, transparent) 45%, transparent);
+}
+
+.viewport {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  background: var(--card, Canvas);
+}
+
+.stage[data-sized] .viewport {
+  border: 1px solid var(--border, GrayText);
+  border-radius: calc(var(--radius, 0.5rem) - 2px);
+  box-shadow: 0 8px 24px -12px rgb(0 0 0 / 0.4);
+}
+
+iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: inherit;
+  background: #fff;
+}
+
+/* While dragging, the frame must not swallow the pointer. */
+.stage[data-dragging] iframe {
+  pointer-events: none;
+}
+
+.handle {
+  position: absolute;
+  z-index: 2;
+}
+
+.handle.e {
+  top: 0;
+  right: -6px;
+  width: 12px;
+  height: 100%;
+  cursor: ew-resize;
+}
+
+.handle.s {
+  bottom: -6px;
+  left: 0;
+  width: 100%;
+  height: 12px;
+  cursor: ns-resize;
+}
+
+.handle.se {
+  right: -8px;
+  bottom: -8px;
+  width: 16px;
+  height: 16px;
+  cursor: nwse-resize;
+}
+
+.size {
+  position: absolute;
+  z-index: 3;
+  right: 0.75rem;
+  bottom: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: calc(var(--radius, 0.5rem) - 2px);
+  background: var(--popover, Canvas);
+  box-shadow: 0 4px 14px -4px rgb(0 0 0 / 0.35);
+  color: var(--popover-foreground, CanvasText);
+  font-family: var(--font-geist-mono, ui-monospace, monospace);
+  font-size: 0.75rem;
+  opacity: 0;
+  transition: opacity 150ms;
+}
+
+.size[data-show] {
+  opacity: 1;
+}
+
+/* A page is hidden until it has had a moment to refuse, so the browser's grey error page is never seen. */
+iframe[data-loading] {
+  visibility: hidden;
+}
+
+/* A page that cannot be shown here: a plain notice in the middle, instead of the browser's error page. */
+
+.notice {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1.5rem;
+  background: var(--card, Canvas);
+  color: var(--muted-foreground, GrayText);
+  text-align: center;
+}
+
+.notice[hidden] {
+  display: none;
+}
+
+.notice > svg {
+  width: 2.5rem;
+  height: 2.5rem;
+  margin-bottom: 0.5rem;
+  stroke-width: 1.5;
+}
+
+.notice strong {
+  color: var(--foreground, CanvasText);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.notice span {
+  max-width: 22rem;
+}
+
+.notice a {
+  display: inline-flex;
+  height: 2.25rem;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding: 0 1rem;
+  border-radius: calc(var(--radius, 0.5rem) - 2px);
+  background: var(--primary, LinkText);
+  color: var(--primary-foreground, Canvas);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.notice a:hover {
+  opacity: 0.9;
+}
+
+.notice a:focus-visible {
+  outline: 2px solid var(--ring, Highlight);
+  outline-offset: 2px;
+}
+
+.notice a svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* Widths and resizing mean nothing without a page. */
+dialog[data-failed] .sizes,
+dialog[data-failed] .handle {
+  display: none;
+}
+
+@media (width < 40rem) {
+  .sizes,
+  .path {
+    display: none;
+  }
+}
