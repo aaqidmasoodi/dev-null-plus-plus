@@ -72,6 +72,32 @@ test('loads new commits as if clicked when the reader is at the top', async ({ p
   await expect(ours(page)).toHaveCount(0, { timeout: 5_000 });
 });
 
+test('keeps new commits tinted until the reader has had a chance to see them', async ({ page, context }) => {
+  await serveLog(context);
+  await page.goto(FIXTURE);
+  await page.mouse.move(10, 10);
+  await page.evaluate(() => {
+    (window as unknown as { showPill: (count: number) => void }).showPill(2);
+  });
+
+  const tint = (id: string) =>
+    page.locator(`[data-commit="${id}"]`).evaluate((row) => getComputedStyle(row).backgroundColor);
+  const clear = 'rgba(0, 0, 0, 0)';
+
+  await expect(page.locator('[data-commit="new-1"]')).toBeVisible();
+  // New commits are tinted; the ones that were already there are not.
+  await expect.poll(() => tint('new-1')).not.toBe(clear);
+  expect(await tint('old-0')).toBe(clear);
+
+  // Sitting still, the tint stays.
+  await page.waitForTimeout(3_000);
+  expect(await tint('new-1')).not.toBe(clear);
+
+  // Once the reader moves, it fades a few seconds later.
+  await page.mouse.move(200, 200, { steps: 5 });
+  await expect.poll(() => tint('new-1'), { timeout: 7_000 }).toBe(clear);
+});
+
 test('never moves a reader who is scrolled down, then loads once they are back at the top', async ({
   page,
   context,

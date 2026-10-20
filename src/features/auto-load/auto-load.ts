@@ -4,6 +4,7 @@ import type { SettingsStore } from '@/core/settings';
 import { feedCommits, findNewCommitsPill, isBusyWithFeed, type NewCommitsPill } from '@/site/log';
 import { VIEW_ATTRIBUTE } from '@/site/takeover';
 
+import { NewCommitHighlights } from './highlight';
 import styles from './pill.css?inline';
 
 export const AUTO_LOAD_PILL_ROLE = 'auto-load-pill';
@@ -18,8 +19,15 @@ export const COVERED_ATTRIBUTE = 'data-dnpp-covered';
 export const AT_TOP_PX = 200;
 /** How long a load may take before we give up and give the site its pill back. */
 const LOAD_TIMEOUT_MS = 15_000;
-/** Long enough to read "Fetching…", so a fast load does not flash. */
-const MIN_FETCHING_MS = 650;
+/**
+ * The pace, so it feels like someone noticed the pill rather than a bot clicking it: the site's pill shows on its own
+ * for a moment, ours takes its place and settles into "Fetching…", stays long enough to read even when the load is
+ * instant, and what arrived is shown for a while before the pill goes. About two and a half seconds end to end.
+ */
+export const NOTICE_MS = 1_000;
+const MORPH_MS = 350;
+const MIN_FETCHING_MS = 1_200;
+const LOADED_HOLD_MS = 1_500;
 
 /** Lucide's "arrow-up", the icon on the site's pill. */
 const ARROW_UP_ICON = ['m5 12 7-7 7 7', 'M12 19V5'];
@@ -34,8 +42,17 @@ function commits(count: number): string {
 
 type State =
   | { kind: 'idle' }
+  /** The site's pill has just appeared; it shows on its own for a moment first. */
+  | { kind: 'noticed'; button: HTMLButtonElement; since: number; timer: number }
   | { kind: 'waiting'; count: number }
-  | { kind: 'fetching'; count: number; before: Set<string>; startedAt: number; timeout: number }
+  | {
+      kind: 'fetching';
+      count: number;
+      before: Set<string>;
+      startedAt: number;
+      timeout: number;
+      press: number;
+    }
   | { kind: 'settling' };
 
 export interface AutoLoadOptions {
@@ -48,8 +65,9 @@ export interface AutoLoadOptions {
  *
  * It does not fetch anything itself. It presses the site's own pill, so the site's own code does the loading, exactly
  * as if the user had clicked: the same request, nothing to break if the site changes its API. Around that it adds the
- * motion: our pill covers theirs and turns into "Fetching…", the new commits slide in with a brief highlight, and the
- * pill fades away.
+ * motion, unhurried so it never feels like a bot: the site's pill shows on its own for a moment, ours takes its place
+ * and settles into "Fetching…", the new commits slide in and stay softly tinted until the reader has seen them, and the
+ * pill says what arrived before it fades away.
  *
  * The site's load replaces the whole feed with its newest page and scrolls to the top. So it only happens on its own
  * when the reader is already at the top. Further down, nothing moves: our pill reads "N new commits above" and follows
@@ -68,6 +86,7 @@ export class AutoLoadNewCommits {
   /** The site's pill while ours covers it. */
   #covered: { button: HTMLButtonElement; wrapper: HTMLElement } | null = null;
   #tracking = 0;
+  readonly #highlights = new NewCommitHighlights();
   #destroyed = false;
 
   constructor({ store, signal }: AutoLoadOptions) {
@@ -109,12 +128,27 @@ export class AutoLoadNewCommits {
 
     const pill = findNewCommitsPill();
 
+    if (!this.isEnabled) {
+      this.#highlights.clear();
+    }
+
     if (pill === null || !this.isEnabled || !this.#mayAct()) {
       // Nothing to do, or not ours to do right now: the site's pill shows as usual.
-      if (this.#state.kind === 'waiting') {
+      if (this.#state.kind === 'waiting' || this.#state.kind === 'noticed') {
         this.#finish();
       }
 
+      return;
+    }
+
+    // A new pill shows on its own for a moment before anything happens, the way a person would notice it first.
+    if (this.#state.kind === 'idle' || (this.#state.kind === 'noticed' && this.#state.button !== pill.button)) {
+      this.#notice(pill.button);
+
+      return;
+    }
+
+    if (this.#state.kind === 'noticed' && performance.now() - this.#state.since < NOTICE_MS) {
       return;
     }
 
@@ -127,13 +161,24 @@ export class AutoLoadNewCommits {
 
   destroy(): void {
     this.#destroyed = true;
+    this.#finish();
+    this.#highlights.clear();
+    document.head.querySelector(ownedSelector(COVER_STYLE_ROLE))?.remove();
+  }
 
-    if (this.#state.kind === 'fetching') {
-      clearTimeout(this.#state.timeout);
+  #notice(button: HTMLButtonElement): void {
+    if (this.#state.kind === 'noticed') {
+      clearTimeout(this.#state.timer);
     }
 
-    this.#finish();
-    document.head.querySelector(ownedSelector(COVER_STYLE_ROLE))?.remove();
+    this.#state = {
+      kind: 'noticed',
+      button,
+      since: performance.now(),
+      timer: window.setTimeout(() => {
+        this.ensure();
+      }, NOTICE_MS),
+    };
   }
 
   /** Not on the settings page, not in a background tab, not in the middle of a reply, a quote or a dialog. */
@@ -157,13 +202,20 @@ export class AutoLoadNewCommits {
     this.#pill.setAttribute('aria-label', `${commits(count)} above. Scroll to the top to load them.`);
 
     if (fresh) {
-      this.#appear();
+      this.#appear(false);
+
+      if (!prefersReducedMotion()) {
+        this.#label.animate([{ opacity: 0.2 }, { opacity: 1 }], { duration: 250, easing: 'ease-out' });
+      }
     }
   }
 
-  /** At the top: press the site's pill and show "Fetching…" while its router loads them. */
+  /**
+   * At the top: ours takes the site's pill's place looking just like it, settles into "Fetching…", and only then
+   * presses the site's pill, which loads them through its router.
+   */
   #fetch({ button, count }: NewCommitsPill): void {
-    const fresh = this.#state.kind !== 'waiting';
+    const fromWaiting = this.#state.kind === 'waiting';
 
     this.#state = {
       kind: 'fetching',
@@ -173,17 +225,36 @@ export class AutoLoadNewCommits {
       timeout: window.setTimeout(() => {
         this.#finish();
       }, LOAD_TIMEOUT_MS),
+      press: window.setTimeout(() => {
+        this.#press(button, count);
+      }, MORPH_MS),
     };
     this.#cover(button);
-    this.#icon.replaceChildren(el('span', { className: 'spinner' }));
-    this.#label.textContent = `Fetching ${commits(count)}…`;
     this.#pill.disabled = true;
     this.#pill.removeAttribute('aria-label');
 
-    if (fresh) {
-      this.#appear();
+    if (!fromWaiting) {
+      // A seamless swap: the same arrow and words as the site's pill, in the same place, so nothing seems to change yet.
+      this.#icon.replaceChildren(createSvgIcon(ARROW_UP_ICON, ''));
+      this.#label.textContent = commits(count);
+      this.#appear(false);
+    }
+  }
+
+  #press(button: HTMLButtonElement, count: number): void {
+    if (this.#state.kind !== 'fetching') {
+      return;
     }
 
+    this.#icon.replaceChildren(el('span', { className: 'spinner' }));
+    this.#label.textContent = `Fetching ${commits(count)}…`;
+
+    if (!prefersReducedMotion()) {
+      this.#label.animate([{ opacity: 0.2 }, { opacity: 1 }], { duration: 250, easing: 'ease-out' });
+    }
+
+    // The load is timed from here, so "Fetching…" always gets its moment.
+    this.#state.startedAt = performance.now();
     // Exactly what a click does: the site's own handler reloads the feed through its router.
     button.click();
   }
@@ -193,10 +264,11 @@ export class AutoLoadNewCommits {
       return;
     }
 
-    const { before, startedAt, timeout } = this.#state;
+    const { before, startedAt, timeout, press } = this.#state;
     const wait = Math.max(0, MIN_FETCHING_MS - (performance.now() - startedAt));
 
     clearTimeout(timeout);
+    clearTimeout(press);
     this.#state = { kind: 'settling' };
     // The router has finished; give React a frame to render the new commits, then show them off.
     window.setTimeout(() => {
@@ -209,8 +281,12 @@ export class AutoLoadNewCommits {
   readonly #onNavigate = (): void => {
     // The site's own reload of the feed fires this too, so only a move off the log counts as leaving. Then whatever we
     // were showing or waiting for belongs to the page that is gone.
-    if (this.#state.kind !== 'idle' && !location.pathname.startsWith('/log/')) {
-      this.#finish();
+    if (!location.pathname.startsWith('/log/')) {
+      this.#highlights.clear();
+
+      if (this.#state.kind !== 'idle') {
+        this.#finish();
+      }
     }
   };
 
@@ -223,7 +299,7 @@ export class AutoLoadNewCommits {
     window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
   }
 
-  /** The new commits slide in with a brief highlight; our pill says what arrived and fades away. */
+  /** The new commits slide in and stay tinted for a while; our pill says what arrived and fades away. */
   #reveal(before: Set<string>): void {
     if (this.#destroyed) {
       return;
@@ -243,16 +319,12 @@ export class AutoLoadNewCommits {
           { opacity: 0, transform: 'translateY(-8px)' },
           { opacity: 1, transform: 'none' },
         ],
-        { duration: 420, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' },
-      );
-      row.animate(
-        [
-          { backgroundColor: 'color-mix(in srgb, var(--primary) 12%, transparent)' },
-          { backgroundColor: 'transparent' },
-        ],
-        { duration: 1800, easing: 'ease-out' },
+        { duration: 600, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' },
       );
     }
+
+    // They stay softly tinted until the reader has had a chance to see them.
+    this.#highlights.mark(rows);
 
     this.#icon.replaceChildren(createSvgIcon(ARROW_UP_ICON, ''));
     this.#label.textContent = rows.length === 0 ? 'Up to date' : `${commits(rows.length)} loaded`;
@@ -262,24 +334,33 @@ export class AutoLoadNewCommits {
         { opacity: 1, transform: 'none' },
         { opacity: 0, transform: 'translateY(-6px)' },
       ],
-      { duration: reduced ? 150 : 320, delay: reduced ? 400 : 900, easing: 'ease-in', fill: 'forwards' },
+      { duration: reduced ? 150 : 450, delay: reduced ? 600 : LOADED_HOLD_MS, easing: 'ease-in', fill: 'forwards' },
     );
 
-    fade.finished
-      .catch(() => undefined)
-      .finally(() => {
-        fade.cancel();
+    const done = (): void => {
+      fade.cancel();
 
-        if (this.#state.kind === 'settling') {
-          this.#finish();
-        }
-      });
+      if (this.#state.kind === 'settling') {
+        this.#finish();
+      }
+    };
+    const timing = fade.effect?.getTiming();
+
+    fade.finished.catch(() => undefined).finally(done);
+    // A backstop: browsers pause animations in background tabs, and a paused fade must not leave this stuck, unable to
+    // load the next commits.
+    window.setTimeout(done, (timing?.delay ?? 0) + Number(timing?.duration ?? 0) + 250);
   }
 
   /** Back to idle: our pill goes, and the site's shows again if it is still there. */
   #finish(): void {
     if (this.#state.kind === 'fetching') {
       clearTimeout(this.#state.timeout);
+      clearTimeout(this.#state.press);
+    }
+
+    if (this.#state.kind === 'noticed') {
+      clearTimeout(this.#state.timer);
     }
 
     this.#state = { kind: 'idle' };
@@ -288,7 +369,11 @@ export class AutoLoadNewCommits {
     this.#host.remove();
   }
 
-  #appear(): void {
+  /**
+   * Puts our pill on the page, over the site's. Swapping in for a pill already on screen does not animate, so nothing
+   * seems to jump; only the words change.
+   */
+  #appear(animate: boolean): void {
     this.#ensureCoverStyle();
     document.body.append(this.#host);
 
@@ -296,7 +381,7 @@ export class AutoLoadNewCommits {
       this.#place(this.#covered.button);
     }
 
-    if (!prefersReducedMotion()) {
+    if (animate && !prefersReducedMotion()) {
       this.#pill.animate(
         [
           { opacity: 0, transform: 'translateY(-8px)' },

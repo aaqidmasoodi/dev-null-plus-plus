@@ -456,7 +456,7 @@ class ComposerAiInstance {
     }
 
     const sweep =
-      'linear-gradient(100deg, transparent 30%, color-mix(in srgb, var(--primary) 14%, transparent) 50%, transparent 70%)';
+      'linear-gradient(100deg, transparent 30%, color-mix(in srgb, var(--primary, #3b6fe0) 14%, transparent) 50%, transparent 70%)';
 
     this.#animations = [
       textarea.animate(

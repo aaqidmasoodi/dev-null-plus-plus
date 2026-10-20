@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ExtensionState } from '@/core/extension-state';
 import { SettingsStore } from '@/core/settings';
-import { AutoLoadNewCommits, COVERED_ATTRIBUTE } from '@/features/auto-load/auto-load';
+import { AutoLoadNewCommits, COVERED_ATTRIBUTE, NOTICE_MS } from '@/features/auto-load/auto-load';
 import { feedCommits, findNewCommitsPill, isBusyWithFeed } from '@/site/log';
 import { removeTakeover, setTakeover } from '@/site/takeover';
 
@@ -19,7 +19,6 @@ const sitePillWrapper = (): Element | null | undefined => findNewCommitsPill()?.
 const scrollTo = (y: number): void => {
   Object.defineProperty(window, 'scrollY', { value: y, configurable: true });
 };
-const settle = (ms = 0): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 describe('the new-commits pill', () => {
   afterEach(() => {
@@ -68,8 +67,17 @@ describe('AutoLoadNewCommits', () => {
   let controller: AbortController;
   let autoLoad: AutoLoadNewCommits;
   let stopSite: () => void;
+  let click: ReturnType<typeof vi.fn<(event: Event) => void>>;
+
+  /** Lets the pill have its moment and our pill settle into "Fetching…", by which point the site's has been pressed. */
+  const afterNoticing = async (): Promise<void> => {
+    await vi.advanceTimersByTimeAsync(NOTICE_MS + 400);
+  };
 
   beforeEach(() => {
+    vi.useFakeTimers({
+      toFake: ['setTimeout', 'clearTimeout', 'Date', 'performance', 'requestAnimationFrame', 'cancelAnimationFrame'],
+    });
     history.replaceState(null, '', '/log/latest');
     document.body.innerHTML = logHtml({ count: 2 });
     scrollTo(0);
@@ -77,6 +85,8 @@ describe('AutoLoadNewCommits', () => {
     controller = new AbortController();
     autoLoad = new AutoLoadNewCommits({ store, signal: controller.signal });
     stopSite = respondToPillLikeTheSite(['c5', 'c4']);
+    click = vi.fn<(event: Event) => void>();
+    findNewCommitsPill()?.button.addEventListener('click', click);
   });
 
   afterEach(() => {
@@ -89,45 +99,79 @@ describe('AutoLoadNewCommits', () => {
     vi.useRealTimers();
   });
 
-  it('loads them as if clicked when the reader is at the top, showing "Fetching…" over the site’s pill', async () => {
-    const click = vi.fn();
-
-    findNewCommitsPill()?.button.addEventListener('click', click);
+  it('lets the site’s pill show on its own for a moment first', async () => {
     autoLoad.ensure();
 
-    expect(click).toHaveBeenCalledOnce();
-    expect(autoLoad.state).toBe('fetching');
-    expect(ourText()).toBe('Fetching 2 new commits…');
-    expect(sitePillWrapper()?.hasAttribute(COVERED_ATTRIBUTE)).toBe(true);
+    expect(autoLoad.state).toBe('noticed');
+    expect(ours()).toBeNull();
+    expect(sitePillWrapper()?.hasAttribute(COVERED_ATTRIBUTE)).toBe(false);
 
-    await settle(700);
+    await vi.advanceTimersByTimeAsync(NOTICE_MS - 100);
+
+    expect(click).not.toHaveBeenCalled();
+    expect(ours()).toBeNull();
+  });
+
+  it('then swaps in a pill that looks just like it, and only then turns to "Fetching…" and presses it', async () => {
+    autoLoad.ensure();
+    await vi.advanceTimersByTimeAsync(NOTICE_MS + 50);
+
+    expect(autoLoad.state).toBe('fetching');
+    expect(ourText()).toBe('2 new commits');
+    expect(sitePillWrapper()?.hasAttribute(COVERED_ATTRIBUTE)).toBe(true);
+    expect(click).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(350);
+
+    expect(ourText()).toBe('Fetching 2 new commits…');
+    expect(click).toHaveBeenCalledOnce();
+  });
+
+  it('keeps "Fetching…" up for a moment even when the load is instant, then shows what arrived', async () => {
+    autoLoad.ensure();
+    await afterNoticing();
+
+    // The site answered at once, but the reader still gets to see it fetching.
+    expect(ourText()).toBe('Fetching 2 new commits…');
+
+    await vi.advanceTimersByTimeAsync(1_300);
 
     expect(feedCommits().map((row) => row.dataset.commit)).toEqual(['c5', 'c4', 'c3', 'c2', 'c1']);
     expect(ourText()).toBe('2 new commits loaded');
   });
 
-  it('keeps going when the site’s own reload reports a navigation on the log', async () => {
+  it('goes back to idle once the pill has faded, leaving the new commits tinted', async () => {
     autoLoad.ensure();
-    await settle(0);
+    await afterNoticing();
+    await vi.advanceTimersByTimeAsync(5_000);
 
-    expect(autoLoad.state).not.toBe('idle');
+    expect(autoLoad.state).toBe('idle');
+    expect(ours()).toBeNull();
+    expect(document.querySelector<HTMLElement>('[data-commit="c5"]')?.getAnimations().length).toBeGreaterThan(0);
   });
 
-  it('goes back to idle once the pill has faded', async () => {
+  it('leaves a pill alone if it goes away during its moment', async () => {
     autoLoad.ensure();
-    await settle(2200);
+    sitePillWrapper()?.remove();
+    await vi.advanceTimersByTimeAsync(NOTICE_MS + 400);
 
     expect(autoLoad.state).toBe('idle');
     expect(ours()).toBeNull();
   });
 
-  it('does not reload or move the page when the reader is scrolled down', () => {
-    const click = vi.fn();
+  it('keeps going when the site’s own reload reports a navigation on the log', async () => {
+    autoLoad.ensure();
+    await afterNoticing();
+
+    expect(autoLoad.state).not.toBe('idle');
+  });
+
+  it('does not reload or move the page when the reader is scrolled down', async () => {
     const scroll = vi.spyOn(window, 'scrollTo');
 
     scrollTo(900);
-    findNewCommitsPill()?.button.addEventListener('click', click);
     autoLoad.ensure();
+    await afterNoticing();
 
     expect(click).not.toHaveBeenCalled();
     expect(scroll).not.toHaveBeenCalled();
@@ -136,39 +180,35 @@ describe('AutoLoadNewCommits', () => {
     expect(sitePillWrapper()?.hasAttribute(COVERED_ATTRIBUTE)).toBe(true);
   });
 
-  it('loads them as soon as the reader is back at the top', () => {
-    const click = vi.fn();
-
+  it('loads them once the reader is back at the top', async () => {
     scrollTo(900);
-    findNewCommitsPill()?.button.addEventListener('click', click);
     autoLoad.ensure();
+    await afterNoticing();
     scrollTo(40);
     autoLoad.ensure();
+    await vi.advanceTimersByTimeAsync(400);
 
     expect(click).toHaveBeenCalledOnce();
-    expect(autoLoad.state).toBe('fetching');
+    // The stand-in site answers at once, so it may already be showing what arrived.
+    expect(['fetching', 'settling']).toContain(autoLoad.state);
   });
 
-  it('scrolls to the top when our waiting pill is clicked', () => {
+  it('scrolls to the top when our waiting pill is clicked', async () => {
     const scroll = vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 
     scrollTo(900);
     autoLoad.ensure();
+    await afterNoticing();
     ours()?.shadowRoot?.querySelector<HTMLButtonElement>('.pill')?.click();
 
     expect(scroll).toHaveBeenCalledWith(expect.objectContaining({ top: 0 }));
   });
 
-  it('keeps the count up to date while waiting', () => {
+  it('keeps the count up to date while waiting', async () => {
     scrollTo(900);
     autoLoad.ensure();
-
-    const button = findNewCommitsPill()?.button;
-
-    if (button) {
-      button.lastChild?.replaceWith('5 new commits');
-    }
-
+    await afterNoticing();
+    findNewCommitsPill()?.button.lastChild?.replaceWith('5 new commits');
     autoLoad.ensure();
 
     expect(ourText()).toBe('5 new commits above');
@@ -193,12 +233,10 @@ describe('AutoLoadNewCommits', () => {
         setTakeover('settings-page');
       },
     ],
-  ])('keeps its hands off while %s', (_, arrange) => {
-    const click = vi.fn();
-
+  ])('keeps its hands off while %s', async (_, arrange) => {
     arrange();
-    findNewCommitsPill()?.button.addEventListener('click', click);
     autoLoad.ensure();
+    await afterNoticing();
 
     expect(click).not.toHaveBeenCalled();
     expect(autoLoad.state).toBe('idle');
@@ -206,19 +244,27 @@ describe('AutoLoadNewCommits', () => {
     expect(sitePillWrapper()?.hasAttribute(COVERED_ATTRIBUTE)).toBe(false);
   });
 
-  it('waits for the tab to be in view', () => {
-    const click = vi.fn();
-
-    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
-    findNewCommitsPill()?.button.addEventListener('click', click);
+  it('stops if the reader starts a reply during the pill’s moment', async () => {
     autoLoad.ensure();
+    document.body.insertAdjacentHTML('beforeend', '<form data-test="reply-composer"></form>');
+    await afterNoticing();
+
+    expect(click).not.toHaveBeenCalled();
+    expect(autoLoad.state).toBe('idle');
+  });
+
+  it('waits for the tab to be in view', async () => {
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
+    autoLoad.ensure();
+    await afterNoticing();
 
     expect(click).not.toHaveBeenCalled();
   });
 
-  it('does nothing when switched off, and gives the site its pill back if it was waiting', () => {
+  it('does nothing when switched off, and gives the site its pill back if it was waiting', async () => {
     scrollTo(900);
     autoLoad.ensure();
+    await afterNoticing();
     expect(autoLoad.state).toBe('waiting');
 
     store.set(state(false));
@@ -229,22 +275,23 @@ describe('AutoLoadNewCommits', () => {
     expect(sitePillWrapper()?.hasAttribute(COVERED_ATTRIBUTE)).toBe(false);
   });
 
-  it('gives the site its pill back if the load never finishes', () => {
-    vi.useFakeTimers();
+  it('gives the site its pill back if the load never finishes', async () => {
     stopSite();
     autoLoad.ensure();
+    await afterNoticing();
     expect(autoLoad.state).toBe('fetching');
 
-    vi.advanceTimersByTime(15_000);
+    await vi.advanceTimersByTimeAsync(15_000);
 
     expect(autoLoad.state).toBe('idle');
     expect(ours()).toBeNull();
     expect(sitePillWrapper()?.hasAttribute(COVERED_ATTRIBUTE)).toBe(false);
   });
 
-  it('stands down when the user leaves the log', () => {
+  it('stands down when the user leaves the log', async () => {
     scrollTo(900);
     autoLoad.ensure();
+    await afterNoticing();
     history.replaceState(null, '', '/notifications');
     document.dispatchEvent(new CustomEvent('inertia:navigate'));
 
@@ -252,20 +299,21 @@ describe('AutoLoadNewCommits', () => {
     expect(ours()).toBeNull();
   });
 
-  it('fetches once, however often it is asked', () => {
-    const click = vi.fn();
+  it('fetches once, however often it is asked', async () => {
+    for (let i = 0; i < 5; i++) {
+      autoLoad.ensure();
+      await vi.advanceTimersByTimeAsync(300);
+    }
 
-    findNewCommitsPill()?.button.addEventListener('click', click);
-    autoLoad.ensure();
-    autoLoad.ensure();
-    autoLoad.ensure();
+    await afterNoticing();
 
     expect(click).toHaveBeenCalledOnce();
   });
 
-  it('does nothing on a page without the pill', () => {
+  it('does nothing on a page without the pill', async () => {
     document.body.innerHTML = logHtml();
     autoLoad.ensure();
+    await afterNoticing();
 
     expect(autoLoad.state).toBe('idle');
     expect(ours()).toBeNull();
