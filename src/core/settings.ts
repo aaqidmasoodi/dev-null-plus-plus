@@ -14,6 +14,8 @@ export interface Settings {
     autoLoadNewCommits: boolean;
     /** Previewing a link in a dialog by pressing and holding it. */
     linkPreview: boolean;
+    /** Peeking at an image, full size, by pressing and holding it. */
+    imagePeek: boolean;
   };
 }
 
@@ -26,6 +28,7 @@ export const DEFAULT_SETTINGS: Settings = {
     aiRewrite: true,
     autoLoadNewCommits: true,
     linkPreview: true,
+    imagePeek: true,
   },
 };
 

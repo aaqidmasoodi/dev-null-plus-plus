@@ -8,6 +8,8 @@ import { writeSettings, type SettingsStore } from '@/core/settings';
 import { ComposerAi } from '@/features/ai-rewrite/composer-ai';
 import { AutoLoadNewCommits } from '@/features/auto-load/auto-load';
 import { autoLoadSection } from '@/features/auto-load/settings-section';
+import { ImagePeek } from '@/features/image-peek/image-peek';
+import { imagePeekSection } from '@/features/image-peek/settings-section';
 import { LinkLongPress } from '@/features/link-preview/long-press';
 import { PreviewDialog } from '@/features/link-preview/preview-dialog';
 import { linkPreviewSection } from '@/features/link-preview/settings-section';
@@ -25,6 +27,7 @@ import { NavItem } from '@/features/nav-item/nav-item';
 import { SettingsNavigator } from '@/features/settings-page/navigator';
 import { aboutSection } from '@/features/settings-page/sections';
 import { SettingsPage } from '@/features/settings-page/settings-page';
+import { peekableImage } from '@/site/images';
 import { isPlainClick } from '@/site/navigate';
 import { findHomePath, isFullScreenLayout, LAYOUT_ATTRIBUTES } from '@/site/selectors';
 import { removeTakeover } from '@/site/takeover';
@@ -99,6 +102,7 @@ export default defineContentScript({
         }),
         autoLoadSection({ store, saveSettings: writeSettings, signal: ctx.signal }),
         linkPreviewSection({ store, saveSettings: writeSettings, signal: ctx.signal }),
+        imagePeekSection({ store, saveSettings: writeSettings, signal: ctx.signal }),
       ],
     });
     const composerAi = new ComposerAi({
@@ -120,10 +124,16 @@ export default defineContentScript({
     };
     const autoLoad = new AutoLoadNewCommits({ store, signal: ctx.signal });
     const preview = new PreviewDialog();
+    const imagePeekOn = (): boolean => store.value.settings.features.imagePeek;
+
+    // Press and hold an image to peek at it. Set up before link previews: an image inside a link peeks.
+    const imagePeek = new ImagePeek({ enabled: () => imagePeekOn() && !preview.isOpen, signal: ctx.signal });
 
     // Press and hold an outside link to preview it. Read at each press, so switching it off takes effect at once.
     new LinkLongPress({
-      enabled: () => store.value.settings.features.linkPreview && !preview.isOpen,
+      enabled: () => store.value.settings.features.linkPreview && !preview.isOpen && !imagePeek.isPeeking,
+      // A press on a picture is a peek, when that is on.
+      ignore: (target) => imagePeekOn() && peekableImage(target) !== null,
       onPress: () => {
         preview.prepare();
       },
@@ -145,6 +155,10 @@ export default defineContentScript({
     store.subscribe(({ settings }) => {
       if (!settings.features.linkPreview) {
         preview.close();
+      }
+
+      if (!settings.features.imagePeek) {
+        imagePeek.destroy();
       }
     }, ctx.signal);
     /** Loads new commits when their pill appears. Also separate, so a failure here touches nothing else. */
@@ -234,6 +248,7 @@ export default defineContentScript({
       composerAi.destroy();
       autoLoad.destroy();
       preview.destroy();
+      imagePeek.destroy();
       removeTakeover();
     });
 

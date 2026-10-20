@@ -20,6 +20,8 @@ Every feature can be switched off on the settings page.
   the log, with phone, tablet and desktop widths and resizable edges. Let go early and it shrinks back. It opens like a
   private window: none of your cookies or logins. Sites known to refuse being shown inside another page, like GitHub
   or X, stay plain links. A normal click is unchanged.
+- **Image peek.** Press and hold any image, such as one of a commit's photos, and it grows out of the page to fill
+  the screen. Let go and it goes back exactly where it was. A normal click still opens the site's photo viewer.
 
 ## Install (development build)
 
@@ -73,12 +75,14 @@ src/
     composer.ts                 Finding the composers and writing into them
     log.ts                      The log's new-commits pill and feed
     links.ts                    Which links can be previewed
+    images.ts                   Which images can be peeked at
   features/
     nav-item/                   The "/dev/null++" link in the left navigation
     settings-page/              The settings page it opens, built from sections
     ai-rewrite/                 The composer's AI button and panel, and its settings section
     auto-load/                  Loading new commits when the log's pill appears
     link-preview/               Press and hold a link to preview it in a private window
+    image-peek/                 Press and hold an image to see it big
 ```
 
 A few rules keep this working while dev-null.sh deploys many times a day.

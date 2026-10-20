@@ -14,6 +14,8 @@ const SWALLOW_MS = 3_000;
 export interface LongPressOptions {
   /** Whether pressing should do anything right now, read at each press. */
   enabled: () => boolean;
+  /** Presses another feature handles, such as on a picture inside a link, which peeks instead. */
+  ignore?: (target: EventTarget | null) => boolean;
   /** A press on a previewable link began. It may be only a click: get ready, but change nothing visible. */
   onPress?: () => void;
   /** The hold has lasted past a click: start growing the preview. */
@@ -92,7 +94,7 @@ export class LinkLongPress {
 
     const target = previewableLink(event.target);
 
-    if (target === null) {
+    if (target === null || this.#options.ignore?.(event.target) === true) {
       return;
     }
 
