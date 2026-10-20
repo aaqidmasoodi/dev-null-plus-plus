@@ -54,15 +54,32 @@ export function navHtml(options: NavOptions = {}): string {
     </nav>`;
 }
 
+interface SiteOptions extends NavOptions {
+  /**
+   * `standard` is the three-column layout most pages use. `full-screen` is Remotes': no right column, and the page is
+   * fixed to the screen.
+   */
+  layout?: 'standard' | 'full-screen';
+}
+
 /** Renders the app shell with the rail into the test document and returns the nav element. */
-export function renderSite(options: NavOptions = {}): HTMLElement {
+export function renderSite(options: SiteOptions = {}): HTMLElement {
+  const { layout = 'standard' } = options;
+
   document.body.innerHTML = `
     <div id="app" data-server-rendered="true">
       <div data-nav="expanded">
         <div data-nav-rail><header>${navHtml(options)}</header></div>
-        <main data-main></main>
+        <main data-main><div data-nav-content></div></main>
+        ${layout === 'standard' ? '<aside></aside>' : ''}
       </div>
     </div>`;
+
+  if (layout === 'full-screen') {
+    document.documentElement.setAttribute('data-fixed-page', '');
+  } else {
+    document.documentElement.removeAttribute('data-fixed-page');
+  }
 
   const nav = document.querySelector<HTMLElement>('nav[aria-label="Main"]');
 

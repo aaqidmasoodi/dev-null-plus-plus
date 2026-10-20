@@ -106,7 +106,7 @@ export function buildNavItem(classes: ItemClasses, href: string): HTMLAnchorElem
 }
 
 export interface NavItemOptions {
-  /** Where the item links to, the settings page's fragment. */
+  /** Where the item links to at first. See {@link NavItem.setHref}. */
   href: string;
 }
 
@@ -117,10 +117,10 @@ export interface NavItemOptions {
  * every DOM change and puts the item back where it belongs if it went missing, moved, or ended up in a fresh nav. It
  * is idempotent and returns early in the common case where nothing changed.
  *
- * It is a plain link to a URL fragment, so the browser handles the click, including opening it in a new tab.
+ * It is a plain link, so the browser handles the click, including opening it in a new tab.
  */
 export class NavItem {
-  readonly #href: string;
+  #href: string;
   #element: HTMLAnchorElement | null = null;
   #classes: ItemClasses | null = null;
   #nav: HTMLElement | null = null;
@@ -172,6 +172,16 @@ export class NavItem {
   }
 
   /** Highlights the item as the current page, the way the site highlights its own. */
+  /** Points the item somewhere else: the settings fragment on this page, or on another page when this one can't host it. */
+  setHref(href: string): void {
+    if (href === this.#href) {
+      return;
+    }
+
+    this.#href = href;
+    this.#element?.setAttribute('href', href);
+  }
+
   setActive(active: boolean): void {
     if (active === this.#active) {
       return;

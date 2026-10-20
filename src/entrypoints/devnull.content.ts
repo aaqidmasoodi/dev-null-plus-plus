@@ -1,12 +1,20 @@
 import { HYDRATION_WAIT_TIMEOUT_MS, isTopLevelSitePage, SITE_MATCHES } from '@/core/constants';
-import { observeDom } from '@/core/dom';
+import { observeAttributes, observeDom } from '@/core/dom';
 import { waitForHydration } from '@/core/hydration';
 import { createLogger } from '@/core/logger';
 import { isContentMessage, isFromOwnBackground } from '@/core/messages';
-import { isSettingsRoute, onRouteChange, openSettingsRoute, SETTINGS_HASH } from '@/core/route';
+import {
+  isSettingsRoute,
+  moveSettingsRoute,
+  onRouteChange,
+  openSettingsRoute,
+  SETTINGS_HASH,
+  settingsHref,
+} from '@/core/route';
 import { NavItem } from '@/features/nav-item/nav-item';
 import { aboutSection } from '@/features/settings-page/sections';
 import { SettingsPage } from '@/features/settings-page/settings-page';
+import { findHomePath, isFullScreenLayout, LAYOUT_ATTRIBUTES } from '@/site/selectors';
 import { removeTakeover } from '@/site/takeover';
 
 const logger = createLogger('content');
@@ -37,11 +45,25 @@ export default defineContentScript({
       sections: [aboutSection(browser.runtime.getManifest().version)],
     });
 
+    /**
+     * Pages that fill the screen, like Remotes, have no room for the settings page, so there it opens on the log.
+     * Returns the path to open it on, or `null` to open it in place.
+     */
+    const settingsElsewhere = (): string | null => (isFullScreenLayout() ? findHomePath() : null);
+
     /** Brings everything in line with the URL and the DOM. Runs on every change of either, so it must stay cheap. */
     const sync = (): void => {
       try {
+        const elsewhere = settingsElsewhere();
         const onSettings = isSettingsRoute();
 
+        if (onSettings && elsewhere !== null) {
+          moveSettingsRoute(elsewhere);
+
+          return;
+        }
+
+        navItem.setHref(settingsHref(elsewhere));
         navItem.setActive(onSettings);
         settingsPage.setOpen(onSettings);
         navItem.ensure();
@@ -53,11 +75,12 @@ export default defineContentScript({
 
     sync();
     observeDom(sync, ctx.signal);
+    observeAttributes(document.documentElement, LAYOUT_ATTRIBUTES, sync, ctx.signal);
     onRouteChange(sync, ctx.signal);
 
     const onMessage = (message: unknown, sender: Browser.runtime.MessageSender): undefined => {
       if (isFromOwnBackground(sender, browser.runtime.id) && isContentMessage(message)) {
-        openSettingsRoute();
+        openSettingsRoute(settingsElsewhere());
       }
 
       return undefined;

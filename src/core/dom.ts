@@ -24,6 +24,29 @@ export function observeDom(callback: () => void, signal: AbortSignal, target: No
   );
 }
 
+/** Calls `callback` whenever one of `attributes` changes on `target`, until `signal` aborts. */
+export function observeAttributes(
+  target: Element,
+  attributes: readonly string[],
+  callback: () => void,
+  signal: AbortSignal,
+): void {
+  if (signal.aborted) {
+    return;
+  }
+
+  const observer = new MutationObserver(callback);
+
+  observer.observe(target, { attributes: true, attributeFilter: [...attributes] });
+  signal.addEventListener(
+    'abort',
+    () => {
+      observer.disconnect();
+    },
+    { once: true },
+  );
+}
+
 /** Marks an element as ours. See {@link OWNED_ATTRIBUTE}. */
 export function markOwned(element: Element, role: string): void {
   element.setAttribute(OWNED_ATTRIBUTE, role);
