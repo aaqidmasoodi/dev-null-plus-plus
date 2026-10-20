@@ -1,12 +1,15 @@
 import {
   MAX_DRAFT_LENGTH,
+  MAX_INSTRUCTION_LENGTH,
+  PRESET_LABELS,
+  PRESET_MODES,
   REWRITE_ERROR_MESSAGES,
-  REWRITE_MODE_LABELS,
-  REWRITE_MODES,
+  type PresetMode,
   type RewriteErrorCode,
   type RewriteMode,
   type RewriteResult,
 } from '@/core/ai';
+import { EXTENSION_NAME } from '@/core/constants';
 import { createSvgIcon, el, markOwned, ownedSelector } from '@/core/dom';
 import { SETTINGS_HASH } from '@/core/route';
 import type { SettingsStore } from '@/core/settings';
@@ -37,13 +40,7 @@ const EXPANDED_CLASSES =
 /** Errors the user fixes on the settings page, so the message links there. */
 const SETTINGS_ERRORS: readonly RewriteErrorCode[] = ['disabled', 'not-configured', 'auth', 'model', 'quota'];
 
-const PROVIDER_NAMES: Record<string, string> = {
-  groq: 'Groq',
-  openai: 'OpenAI',
-  anthropic: 'Anthropic',
-  xai: 'xAI',
-  gemini: 'Google Gemini',
-};
+const IDLE_HINT = 'Rewrites your draft in place. Pick a preset, or say how you want it and press Enter.';
 
 function prefersReducedMotion(): boolean {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -71,55 +68,105 @@ type Status =
   | { kind: 'done' }
   | { kind: 'error'; error: RewriteErrorCode };
 
-export type RewriteRequester = (request: {
+export interface RewriteRequest {
   text: string;
   mode: RewriteMode;
+  instruction: string;
   maxLength: number;
-}) => Promise<RewriteResult>;
+}
+
+export type RewriteRequester = (request: RewriteRequest) => Promise<RewriteResult>;
 
 /**
- * The AI button and panel for one composer. Owns its own state, and survives React re-rendering the toolbar by
- * putting its elements back on every {@link ComposerAiInstance.ensure}.
+ * The AI button and panel for one composer. The button toggles the panel, like the site's schedule toggle; the panel
+ * opens where the schedule panel opens. Its elements are built once and only their state changes, so what the user
+ * types into it survives, and they are put back in place on every {@link ComposerAiInstance.ensure} after React
+ * re-renders the toolbar.
  */
 class ComposerAiInstance {
-  readonly #store: SettingsStore<ExtensionState>;
   readonly #request: RewriteRequester;
   readonly #button: HTMLButtonElement;
+  /** What goes into the toolbar: the button, or a wrapper like the site's own around it. */
+  readonly #slot: HTMLElement;
   readonly #icon: SVGSVGElement;
   readonly #host: HTMLElement;
+  readonly #input: HTMLInputElement;
+  readonly #presets: Map<PresetMode, HTMLButtonElement>;
+  readonly #status: HTMLElement;
   readonly #panelId = `dnpp-ai-panel-${String(++panelCount)}`;
   #parts: ComposerParts;
   #open = false;
-  #status: Status = { kind: 'idle' };
+  #state: Status = { kind: 'idle' };
   /** The draft before the last rewrite, for Undo. Cleared once the user edits the result. */
   #previous: string | null = null;
   #destroyed = false;
   #animations: Animation[] = [];
 
-  constructor(parts: ComposerParts, store: SettingsStore<ExtensionState>, request: RewriteRequester) {
+  constructor(parts: ComposerParts, request: RewriteRequester) {
     this.#parts = parts;
-    this.#store = store;
     this.#request = request;
 
     const classes = buttonClasses(parts.anchor);
 
     this.#icon = createSvgIcon(SPARKLES_ICON, classes.icon);
-    this.#button = el('button', {
-      className: classes.button,
-      attrs: {
-        type: 'button',
-        'aria-label': 'Rewrite with AI',
-        title: 'Rewrite with AI',
-        'aria-expanded': 'false',
-        'aria-controls': this.#panelId,
-        'data-test': 'dnpp-ai-button',
+    this.#button = el(
+      'button',
+      {
+        className: classes.button,
+        attrs: {
+          type: 'button',
+          'aria-label': 'Rewrite',
+          title: 'Rewrite',
+          'aria-expanded': 'false',
+          'aria-controls': this.#panelId,
+          'data-test': 'dnpp-ai-button',
+        },
       },
-    });
-    markOwned(this.#button, AI_BUTTON_ROLE);
-    this.#button.append(this.#icon);
+      [this.#icon],
+    );
     this.#button.addEventListener('click', () => {
       this.#setOpen(!this.#open);
     });
+    // The site wraps each toolbar button for its tooltip. Ours gets the same wrapper, so the toolbar lays out the same.
+    this.#slot =
+      parts.slot === parts.anchor ? this.#button : el('span', { className: parts.slot.className }, [this.#button]);
+    markOwned(this.#slot, AI_BUTTON_ROLE);
+
+    this.#input = el('input', {
+      className: 'input',
+      attrs: {
+        type: 'text',
+        'aria-label': 'How should it read?',
+        placeholder: 'How should it read? e.g. punchier, add a bit of humour',
+        maxlength: String(MAX_INSTRUCTION_LENGTH),
+        autocomplete: 'off',
+        enterkeyhint: 'go',
+      },
+    });
+    this.#input.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' && !event.isComposing) {
+        event.preventDefault();
+
+        const instruction = this.#input.value.trim();
+
+        void this.#rewrite(instruction === '' ? 'improve' : 'custom', instruction);
+      }
+    });
+
+    this.#presets = new Map(
+      PRESET_MODES.map((mode) => {
+        const preset = el('button', { className: 'preset', attrs: { type: 'button', 'data-mode': mode } }, [
+          PRESET_LABELS[mode],
+        ]);
+
+        preset.addEventListener('click', () => {
+          void this.#rewrite(mode, '');
+        });
+
+        return [mode, preset];
+      }),
+    );
+    this.#status = el('p', { className: 'status', attrs: { 'aria-live': 'polite' } });
 
     this.#host = el('div', { attrs: { id: this.#panelId } });
     markOwned(this.#host, AI_PANEL_ROLE);
@@ -128,16 +175,31 @@ class ComposerAiInstance {
       this.#host.setAttribute('data-compact', '');
     }
 
-    const shadow = this.#host.attachShadow({ mode: 'open' });
+    this.#host
+      .attachShadow({ mode: 'open' })
+      .append(
+        el('style', {}, [styles]),
+        el('div', { className: 'panel', attrs: { role: 'group', 'aria-labelledby': `${this.#panelId}-title` } }, [
+          el('div', { className: 'head' }, [
+            el('span', { className: 'title', attrs: { id: `${this.#panelId}-title` } }, ['Rewrite']),
+            el('span', { className: 'brand', attrs: { 'aria-hidden': 'true' } }, [EXTENSION_NAME]),
+          ]),
+          el('div', { className: 'field' }, [createSvgIcon(SPARKLES_ICON, 'field-icon'), this.#input]),
+          el('div', { className: 'presets', attrs: { role: 'group', 'aria-label': 'Presets' } }, [
+            ...this.#presets.values(),
+          ]),
+          this.#status,
+        ]),
+      );
+    this.#renderState();
 
-    shadow.append(el('style', {}, [styles]), el('div'));
-    // Typing in the panel must not reach the site's single-key shortcuts.
     this.#host.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') {
         this.#setOpen(false);
         this.#button.focus();
       }
 
+      // Typing in the panel must not reach the site's single-key shortcuts.
       event.stopPropagation();
     });
 
@@ -151,7 +213,7 @@ class ComposerAiInstance {
 
   /** The elements this instance put on the page, attached or not. */
   get elements(): readonly Element[] {
-    return [this.#button, this.#host];
+    return [this.#slot, this.#host];
   }
 
   /** Puts the button and, when open, the panel where they belong. Cheap when nothing moved. */
@@ -163,8 +225,8 @@ class ComposerAiInstance {
 
     this.#parts = parts;
 
-    if (this.#button.previousElementSibling !== parts.anchor) {
-      parts.anchor.after(this.#button);
+    if (this.#slot.previousElementSibling !== parts.slot) {
+      parts.slot.after(this.#slot);
     }
 
     if (this.#open && this.#host.nextElementSibling !== parts.toolbar) {
@@ -176,23 +238,16 @@ class ComposerAiInstance {
     }
   }
 
-  /** Re-renders the panel's provider line after the user changes provider or model. */
-  refresh(): void {
-    if (this.#open) {
-      this.#render();
-    }
-  }
-
   destroy(): void {
     this.#destroyed = true;
     this.#stopAnimations();
     this.#parts.textarea.removeEventListener('input', this.#onUserInput);
 
-    if (this.#status.kind === 'busy') {
+    if (this.#state.kind === 'busy') {
       this.#parts.textarea.readOnly = false;
     }
 
-    this.#button.remove();
+    this.#slot.remove();
     this.#host.remove();
   }
 
@@ -200,9 +255,8 @@ class ComposerAiInstance {
     if (event.isTrusted && this.#previous !== null) {
       this.#previous = null;
 
-      if (this.#status.kind === 'done') {
-        this.#status = { kind: 'idle' };
-        this.#render();
+      if (this.#state.kind === 'done') {
+        this.#setState({ kind: 'idle' });
       }
     }
   };
@@ -215,98 +269,75 @@ class ComposerAiInstance {
     this.#open = open;
     this.#button.setAttribute('aria-expanded', String(open));
 
-    if (open) {
-      if (this.#status.kind !== 'busy') {
-        this.#status = this.#previous === null ? { kind: 'idle' } : { kind: 'done' };
-      }
-
-      this.#render();
+    if (open && this.#state.kind === 'error') {
+      this.#setState({ kind: 'idle' });
     }
 
     this.ensure(this.#parts);
+
+    if (open) {
+      this.#input.focus();
+    }
   }
 
-  #render(): void {
-    const container = this.#host.shadowRoot?.lastElementChild;
+  #setState(state: Status): void {
+    this.#state = state;
+    this.#renderState();
+  }
 
-    if (container === null || container === undefined) {
-      return;
+  /** Updates the parts of the panel that depend on its state, leaving the input and its text alone. */
+  #renderState(): void {
+    const state = this.#state;
+    const busy = state.kind === 'busy';
+
+    this.#input.disabled = busy;
+
+    for (const [mode, preset] of this.#presets) {
+      const active = busy && state.mode === mode;
+
+      preset.disabled = busy;
+      preset.toggleAttribute('aria-busy', active);
+      preset.replaceChildren(
+        ...(active ? [el('span', { className: 'spinner', attrs: { 'aria-hidden': 'true' } })] : []),
+        PRESET_LABELS[mode],
+      );
     }
 
-    const ai = this.#store.value.ai;
-    const busy = this.#status.kind === 'busy';
-    const options = REWRITE_MODES.map((mode) => {
-      const active = this.#status.kind === 'busy' && this.#status.mode === mode;
-      const button = el('button', { className: 'option', attrs: { type: 'button', 'data-mode': mode } }, [
-        active ? el('span', { className: 'spinner', attrs: { 'aria-hidden': 'true' } }) : null,
-        REWRITE_MODE_LABELS[mode],
-      ]);
+    this.#status.className = 'status';
+    this.#status.removeAttribute('role');
 
-      button.disabled = busy;
-
-      if (active) {
-        button.setAttribute('aria-busy', 'true');
-      }
-
-      button.addEventListener('click', () => {
-        void this.#rewrite(mode);
-      });
-
-      return button;
-    });
-
-    container.replaceChildren(
-      el('div', { className: 'panel', attrs: { role: 'group', 'aria-labelledby': `${this.#panelId}-title` } }, [
-        el('div', { className: 'head' }, [
-          el('span', { className: 'title', attrs: { id: `${this.#panelId}-title` } }, ['Rewrite with AI']),
-          ai === null
-            ? null
-            : el('span', { className: 'meta' }, [`${PROVIDER_NAMES[ai.provider] ?? ai.provider} · ${ai.model}`]),
-        ]),
-        el('div', { className: 'options' }, options),
-        this.#renderStatus(),
-      ]),
-    );
-  }
-
-  #renderStatus(): HTMLElement {
-    const status = this.#status;
-    const live = { 'aria-live': 'polite' };
-
-    switch (status.kind) {
+    switch (state.kind) {
+      case 'idle':
+        this.#status.replaceChildren(IDLE_HINT);
+        break;
       case 'busy':
-        return el('p', { className: 'status busy', attrs: live }, [`Rewriting: ${REWRITE_MODE_LABELS[status.mode]}…`]);
+        this.#status.classList.add('busy');
+        this.#status.replaceChildren('Rewriting…');
+        break;
       case 'done': {
         const undo = el('button', { className: 'link', attrs: { type: 'button' } }, ['Undo']);
 
         undo.addEventListener('click', () => {
           this.#undo();
         });
-
-        return el('p', { className: 'status', attrs: live }, ['Rewritten.', undo]);
+        this.#status.replaceChildren('Rewritten.', undo);
+        break;
       }
       case 'error': {
-        const settings = SETTINGS_ERRORS.includes(status.error)
+        const settings = SETTINGS_ERRORS.includes(state.error)
           ? el('a', { className: 'link', attrs: { href: SETTINGS_HASH } }, ['Open settings'])
           : null;
 
-        return el('p', { className: 'status error', attrs: { role: 'alert' } }, [
-          REWRITE_ERROR_MESSAGES[status.error],
-          settings,
-        ]);
-      }
-      case 'idle': {
-        const provider = this.#store.value.ai?.provider;
-
-        return el('p', { className: 'status', attrs: live }, [
-          `Sends your draft to ${provider === undefined ? 'your provider' : (PROVIDER_NAMES[provider] ?? provider)} and replaces it with the rewrite.`,
-        ]);
+        this.#status.classList.add('error');
+        this.#status.setAttribute('role', 'alert');
+        this.#status.replaceChildren(REWRITE_ERROR_MESSAGES[state.error], ...(settings === null ? [] : [settings]));
+        break;
       }
     }
   }
 
-  async #rewrite(mode: RewriteMode): Promise<void> {
-    if (this.#status.kind === 'busy') {
+  async #rewrite(mode: RewriteMode, instruction: string): Promise<void> {
+    if (this.#state.kind === 'busy') {
       return;
     }
 
@@ -314,8 +345,7 @@ class ComposerAiInstance {
     const draft = textarea.value;
 
     if (draft.trim() === '') {
-      this.#status = { kind: 'error', error: 'empty' };
-      this.#render();
+      this.#setState({ kind: 'error', error: 'empty' });
       textarea.focus();
 
       return;
@@ -323,8 +353,7 @@ class ComposerAiInstance {
 
     const wasReadOnly = textarea.readOnly;
 
-    this.#status = { kind: 'busy', mode };
-    this.#render();
+    this.#setState({ kind: 'busy', mode });
     // Hold the draft still while it is being rewritten, so nothing typed now is lost when the result lands.
     textarea.readOnly = true;
     this.#startAnimations(textarea);
@@ -332,7 +361,12 @@ class ComposerAiInstance {
     let result: RewriteResult;
 
     try {
-      result = await this.#request({ text: draft, mode, maxLength: composerMaxLength(textarea, MAX_DRAFT_LENGTH) });
+      result = await this.#request({
+        text: draft,
+        mode,
+        instruction,
+        maxLength: composerMaxLength(textarea, MAX_DRAFT_LENGTH),
+      });
     } catch {
       result = { ok: false, error: 'provider' };
     }
@@ -348,16 +382,14 @@ class ComposerAiInstance {
     current.readOnly = wasReadOnly;
 
     if (!result.ok) {
-      this.#status = { kind: 'error', error: result.error };
-      this.#render();
+      this.#setState({ kind: 'error', error: result.error });
 
       return;
     }
 
     this.#previous = draft;
     this.#replace(current, result.text);
-    this.#status = { kind: 'done' };
-    this.#render();
+    this.#setState({ kind: 'done' });
   }
 
   #undo(): void {
@@ -369,8 +401,7 @@ class ComposerAiInstance {
 
     this.#previous = null;
     this.#replace(this.#parts.textarea, previous);
-    this.#status = { kind: 'idle' };
-    this.#render();
+    this.#setState({ kind: 'idle' });
   }
 
   /** Swaps in new text with a short fade, and leaves the caret at the end, ready to keep typing. */
@@ -477,7 +508,7 @@ export class ComposerAi {
       let instance = this.#instances.get(parts.root);
 
       if (instance === undefined) {
-        instance = new ComposerAiInstance(parts, this.#store, this.#request);
+        instance = new ComposerAiInstance(parts, this.#request);
         this.#instances.set(parts.root, instance);
       }
 
@@ -492,13 +523,6 @@ export class ComposerAi {
     }
 
     this.#removeStrays();
-  }
-
-  /** Updates open panels, for example after the user picks another model. */
-  refresh(): void {
-    for (const instance of this.#instances.values()) {
-      instance.refresh();
-    }
   }
 
   destroy(): void {

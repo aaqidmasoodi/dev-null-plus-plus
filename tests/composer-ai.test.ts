@@ -34,21 +34,28 @@ const commitButton = (): HTMLButtonElement => {
 
   return button;
 };
-const panel = (): ShadowRoot | null | undefined =>
-  document.getElementById(commitButton().getAttribute('aria-controls') ?? '')?.shadowRoot;
-const option = (label: string): HTMLButtonElement | undefined =>
-  [...(panel()?.querySelectorAll<HTMLButtonElement>('.option') ?? [])].find(
+const host = (): HTMLElement | null => document.getElementById(commitButton().getAttribute('aria-controls') ?? '');
+const panel = (): ShadowRoot | null | undefined => host()?.shadowRoot;
+const preset = (label: string): HTMLButtonElement | undefined =>
+  [...(panel()?.querySelectorAll<HTMLButtonElement>('.preset') ?? [])].find(
     (button) => button.textContent.trim() === label,
   );
+const input = (): HTMLInputElement | null | undefined => panel()?.querySelector<HTMLInputElement>('.input');
+const pressEnter = (): void => {
+  input()?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, composed: true }));
+};
 const settle = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
-describe('ComposerAi', () => {
+describe.each([
+  { shape: 'the live markup, with each button wrapped', wrapped: true },
+  { shape: 'the source markup, with bare buttons', wrapped: false },
+])('ComposerAi on $shape', ({ wrapped }) => {
   let store: SettingsStore<ExtensionState>;
   let request: ReturnType<typeof vi.fn<RewriteRequester>>;
   let composerAi: ComposerAi;
 
   beforeEach(() => {
-    document.body.innerHTML = composersHtml();
+    document.body.innerHTML = composersHtml({ wrapped });
     store = new SettingsStore(connected);
     request = vi.fn<RewriteRequester>(() =>
       Promise.resolve<RewriteResult>({ ok: true, text: 'Shipped the new parser.' }),
@@ -61,14 +68,24 @@ describe('ComposerAi', () => {
     document.body.innerHTML = '';
   });
 
-  it('adds a button to every composer, right after its last toolbar icon', () => {
+  /** The element a toolbar button sits in: its wrapper on the live site, or itself. */
+  const slotOf = (button: Element): Element => (wrapped ? (button.parentElement ?? button) : button);
+
+  it('adds a button to every composer, right after its last toolbar icon, wrapped like its neighbours', () => {
     composerAi.ensure();
 
     const [commit, reply] = aiButtons();
+    const schedule = document.querySelector('[data-test="schedule-toggle"]');
+    const replyImage = document.querySelector('[data-test="reply-composer"] [data-test="attach-images-button"]');
 
     expect(aiButtons()).toHaveLength(2);
-    expect(commit?.previousElementSibling?.getAttribute('data-test')).toBe('schedule-toggle');
-    expect(reply?.previousElementSibling?.getAttribute('data-test')).toBe('attach-images-button');
+    expect(commit && slotOf(commit).previousElementSibling).toBe(schedule && slotOf(schedule));
+    expect(reply && slotOf(reply).previousElementSibling).toBe(replyImage && slotOf(replyImage));
+
+    if (wrapped) {
+      expect(commit?.parentElement?.className).toBe('inline-flex shrink-0');
+      expect(commit?.parentElement?.childElementCount).toBe(1);
+    }
   });
 
   it('looks like the site’s own toolbar buttons', () => {
@@ -81,7 +98,43 @@ describe('ComposerAi', () => {
     expect(reply?.className).toContain('size-8');
     expect(reply?.className).toContain('aria-expanded:bg-primary-soft');
     expect(commit?.querySelector('svg')?.getAttribute('class')).toBe('size-5');
-    expect(commit?.getAttribute('aria-label')).toBe('Rewrite with AI');
+    expect(commit?.getAttribute('aria-label')).toBe('Rewrite');
+  });
+
+  it('toggles its panel above the whole toolbar row, which stays as it was', () => {
+    composerAi.ensure();
+
+    const row = document.querySelector('[data-test="create-commit-button"]')?.parentElement;
+    const rowChildren = row === null || row === undefined ? [] : [...row.children];
+
+    commitButton().click();
+
+    expect(commitButton().getAttribute('aria-expanded')).toBe('true');
+    expect(host()?.nextElementSibling).toBe(row);
+    expect(row === null || row === undefined ? [] : [...row.children]).toEqual(rowChildren);
+
+    commitButton().click();
+
+    expect(commitButton().getAttribute('aria-expanded')).toBe('false');
+    expect(host()).toBeNull();
+  });
+
+  it('shows a title, a quiet signature, a field and the presets, but no model', () => {
+    composerAi.ensure();
+    commitButton().click();
+
+    expect(panel()?.querySelector('.title')?.textContent).toBe('Rewrite');
+    expect(panel()?.querySelector('.brand')?.textContent).toBe('/dev/null++');
+    expect(input()?.placeholder).toContain('How should it read?');
+    expect([...(panel()?.querySelectorAll('.preset') ?? [])].map((button) => button.textContent.trim())).toEqual([
+      'Improve',
+      'Shorten',
+      'Fix grammar',
+      'Casual',
+      'Professional',
+    ]);
+    expect(panel()?.textContent).not.toContain('llama');
+    expect(panel()?.textContent).not.toContain('Groq');
   });
 
   it('shows nothing when the feature is off or no provider is connected', () => {
@@ -94,39 +147,33 @@ describe('ComposerAi', () => {
     expect(aiButtons()).toHaveLength(0);
   });
 
-  it('removes its buttons when the feature is turned off', () => {
+  it('removes its buttons, wrappers included, when the feature is turned off', () => {
     composerAi.ensure();
     store.set({ ...connected, settings: { features: { aiRewrite: false } } });
     composerAi.ensure();
 
     expect(aiButtons()).toHaveLength(0);
+    expect(document.querySelectorAll('[data-dnpp]')).toHaveLength(0);
   });
 
-  it('opens its panel above the toolbar, like the schedule panel', () => {
-    composerAi.ensure();
-    commitButton().click();
-
-    const host = document.getElementById(commitButton().getAttribute('aria-controls') ?? '');
-
-    expect(commitButton().getAttribute('aria-expanded')).toBe('true');
-    expect(host?.nextElementSibling?.className).toContain('mt-2 flex');
-    expect(panel()?.textContent).toContain('Groq · llama-3.3-70b-versatile');
-    expect(option('Improve')).toBeDefined();
-    expect(option('Fix grammar')).toBeDefined();
-  });
-
-  it('rewrites the draft and offers Undo', async () => {
+  it('rewrites with a preset and offers Undo', async () => {
     composerAi.ensure();
     setComposerText(commitTextarea(), 'shipd new parser');
     commitButton().click();
-    option('Improve')?.click();
+    preset('Improve')?.click();
 
     expect(commitTextarea().readOnly).toBe(true);
     expect(panel()?.textContent).toContain('Rewriting');
+    expect(input()?.disabled).toBe(true);
 
     await settle();
 
-    expect(request).toHaveBeenCalledWith({ text: 'shipd new parser', mode: 'improve', maxLength: 4500 });
+    expect(request).toHaveBeenCalledWith({
+      text: 'shipd new parser',
+      mode: 'improve',
+      instruction: '',
+      maxLength: 4500,
+    });
     expect(commitTextarea().value).toBe('Shipped the new parser.');
     expect(commitTextarea().readOnly).toBe(false);
     expect(panel()?.textContent).toContain('Rewritten.');
@@ -136,6 +183,56 @@ describe('ComposerAi', () => {
     expect(commitTextarea().value).toBe('shipd new parser');
   });
 
+  it('rewrites the way the user asks when they type it and press Enter', async () => {
+    composerAi.ensure();
+    setComposerText(commitTextarea(), 'shipd new parser');
+    commitButton().click();
+
+    const field = input();
+
+    if (field) {
+      field.value = '  punchier, with a bit of humour ';
+    }
+
+    pressEnter();
+    await settle();
+
+    expect(request).toHaveBeenCalledWith({
+      text: 'shipd new parser',
+      mode: 'custom',
+      instruction: 'punchier, with a bit of humour',
+      maxLength: 4500,
+    });
+  });
+
+  it('improves when Enter is pressed with nothing typed', async () => {
+    composerAi.ensure();
+    setComposerText(commitTextarea(), 'draft');
+    commitButton().click();
+    pressEnter();
+    await settle();
+
+    expect(request).toHaveBeenCalledWith(expect.objectContaining({ mode: 'improve', instruction: '' }));
+  });
+
+  it('keeps what was typed in the field through a rewrite', async () => {
+    composerAi.ensure();
+    setComposerText(commitTextarea(), 'draft');
+    commitButton().click();
+
+    const field = input();
+
+    if (field) {
+      field.value = 'shorter please';
+    }
+
+    pressEnter();
+    await settle();
+
+    expect(input()).toBe(field);
+    expect(input()?.value).toBe('shorter please');
+  });
+
   it('tells React about the new text, as typing would', async () => {
     const onInput = vi.fn();
 
@@ -143,7 +240,7 @@ describe('ComposerAi', () => {
     commitTextarea().addEventListener('input', onInput);
     setComposerText(commitTextarea(), 'draft');
     commitButton().click();
-    option('Shorten')?.click();
+    preset('Shorten')?.click();
     await settle();
 
     expect(onInput).toHaveBeenCalledTimes(2);
@@ -154,7 +251,7 @@ describe('ComposerAi', () => {
     composerAi.ensure();
     setComposerText(commitTextarea(), 'draft');
     commitButton().click();
-    option('Improve')?.click();
+    preset('Improve')?.click();
     await settle();
 
     expect(panel()?.textContent).toContain('rejected your API key');
@@ -165,7 +262,7 @@ describe('ComposerAi', () => {
   it('asks for a draft before sending anything', () => {
     composerAi.ensure();
     commitButton().click();
-    option('Improve')?.click();
+    preset('Improve')?.click();
 
     expect(request).not.toHaveBeenCalled();
     expect(panel()?.textContent).toContain('Write something first.');
@@ -173,11 +270,13 @@ describe('ComposerAi', () => {
 
   it('comes back when React re-renders the toolbar', () => {
     composerAi.ensure();
-    commitButton().remove();
+    slotOf(commitButton()).remove();
     composerAi.ensure();
 
+    const schedule = document.querySelector('[data-test="schedule-toggle"]');
+
     expect(aiButtons()).toHaveLength(2);
-    expect(commitButton().previousElementSibling?.getAttribute('data-test')).toBe('schedule-toggle');
+    expect(slotOf(commitButton()).previousElementSibling).toBe(schedule && slotOf(schedule));
   });
 
   it('cleans up when a composer goes away', () => {
@@ -205,7 +304,7 @@ describe('ComposerAi', () => {
     composerAi.ensure();
     commitButton().click();
     document.addEventListener('keydown', siteShortcut);
-    option('Improve')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'c', bubbles: true, composed: true }));
+    input()?.dispatchEvent(new KeyboardEvent('keydown', { key: 'c', bubbles: true, composed: true }));
     document.removeEventListener('keydown', siteShortcut);
 
     expect(siteShortcut).not.toHaveBeenCalled();
@@ -217,14 +316,17 @@ describe('findComposers', () => {
     document.body.innerHTML = '';
   });
 
-  it('finds commit and reply composers with their parts', () => {
-    document.body.innerHTML = composersHtml();
+  it.each([true, false])('finds the parts whether or not buttons are wrapped (wrapped: %s)', (wrapped) => {
+    document.body.innerHTML = composersHtml({ wrapped });
 
-    const composers = findComposers();
+    const [commit, reply] = findComposers();
+    const submit = document.querySelector('[data-test="create-commit-button"]');
 
-    expect(composers.map((composer) => composer.kind)).toEqual(['commit-composer', 'reply-composer']);
-    expect(composers[0]?.textarea.id).toBe('body');
-    expect(composers[0]?.anchor.getAttribute('data-test')).toBe('schedule-toggle');
+    expect([commit?.kind, reply?.kind]).toEqual(['commit-composer', 'reply-composer']);
+    expect(commit?.textarea.id).toBe('body');
+    expect(commit?.anchor.getAttribute('data-test')).toBe('schedule-toggle');
+    expect(commit?.slot).toBe(wrapped ? commit?.anchor.parentElement : commit?.anchor);
+    expect(commit?.toolbar).toBe(submit?.parentElement);
   });
 
   it('skips composers missing the parts it needs', () => {

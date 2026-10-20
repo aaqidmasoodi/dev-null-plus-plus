@@ -1,4 +1,4 @@
-import { isRewriteMode, MAX_DRAFT_LENGTH, type RewriteMode } from './ai';
+import { isInstruction, isRewriteMode, MAX_DRAFT_LENGTH, type RewriteMode } from './ai';
 import { isSiteUrl, SITE_ORIGIN } from './constants';
 
 /**
@@ -27,6 +27,8 @@ export interface RewriteMessage {
   type: 'dnpp:ai-rewrite';
   text: string;
   mode: RewriteMode;
+  /** The user's own words for `custom`; empty for a preset. */
+  instruction: string;
   /** The composer's own length limit, which the rewrite must fit. */
   maxLength: number;
 }
@@ -42,11 +44,14 @@ export function isBackgroundMessage(value: unknown): value is BackgroundMessage 
   const message = value as Record<string, unknown>;
 
   return (
-    Object.keys(message).sort().join() === 'maxLength,mode,text,type' &&
+    Object.keys(message).sort().join() === 'instruction,maxLength,mode,text,type' &&
     message.type === 'dnpp:ai-rewrite' &&
     typeof message.text === 'string' &&
     message.text.length <= MAX_DRAFT_LENGTH &&
     isRewriteMode(message.mode) &&
+    isInstruction(message.instruction) &&
+    // A custom rewrite needs the user's words; a preset carries none.
+    (message.mode === 'custom') === (message.instruction.trim() !== '') &&
     typeof message.maxLength === 'number' &&
     Number.isInteger(message.maxLength) &&
     message.maxLength > 0 &&

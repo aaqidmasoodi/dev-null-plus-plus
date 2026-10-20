@@ -61,7 +61,7 @@ function onMessage(
   }
 
   void rewrite(
-    { text: message.text, mode: message.mode, maxLength: message.maxLength },
+    { text: message.text, mode: message.mode, instruction: message.instruction, maxLength: message.maxLength },
     { readSettings, readCredential: readAiCredential, complete, limiter: rewriteLimiter },
   )
     .catch((error: unknown) => {

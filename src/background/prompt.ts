@@ -1,4 +1,4 @@
-import type { RewriteMode } from '@/core/ai';
+import type { PresetMode, RewriteMode } from '@/core/ai';
 
 /**
  * The prompt for rewriting a post. The draft is the user's own text, but it can contain anything, including text that
@@ -20,7 +20,7 @@ export function rewriteSystemPrompt(maxLength: number): string {
   ].join('\n');
 }
 
-const INSTRUCTIONS: Record<RewriteMode, string> = {
+const INSTRUCTIONS: Record<PresetMode, string> = {
   improve: 'Make it clearer and tighter while keeping its tone. Fix spelling and grammar.',
   shorten: 'Make it noticeably shorter. Keep the main point and anything specific, like names, numbers and links.',
   fix: 'Fix only spelling, grammar and punctuation. Change nothing else.',
@@ -31,12 +31,17 @@ const INSTRUCTIONS: Record<RewriteMode, string> = {
 /** Any spelling of an opening or closing draft tag: `<draft>`, `</draft >`, `< /DRAFT>` and so on. */
 const DRAFT_TAG = /<\s*\/?\s*draft\b[^>]*>/gi;
 
-export function rewritePrompt(mode: RewriteMode, draft: string): string {
+/**
+ * @param instruction The user's own words, for `custom`. Already limited to one short line; quoted so it reads as the
+ * author's request, and still bound by the rules in the system prompt.
+ */
+export function rewritePrompt(mode: RewriteMode, draft: string, instruction = ''): string {
   // A draft tag inside the draft would let it close the fence early, so every one is defused: all of its angle
   // brackets become look-alike characters that no longer form a tag.
   const fenced = draft.replace(DRAFT_TAG, (tag) => tag.replace(/</g, '‹').replace(/>/g, '›'));
+  const task = mode === 'custom' ? `Rewrite it the way the author asks: "${instruction.trim()}"` : INSTRUCTIONS[mode];
 
-  return `Instruction: ${INSTRUCTIONS[mode]}\n\n<draft>\n${fenced}\n</draft>`;
+  return `Instruction: ${task}\n\n<draft>\n${fenced}\n</draft>`;
 }
 
 /**

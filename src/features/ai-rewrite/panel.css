@@ -1,7 +1,8 @@
 /*
- * The rewrite panel in the composer. It opens where the site's schedule panel opens and copies its look
- * (`rounded-lg border bg-muted/30 p-3` in components/commit-composer.tsx). It lives in a shadow root, so it reads the
- * site's theme tokens, which inherit into it, and is untouched by the site's own styles.
+ * The rewrite panel in the composer. It opens where the site's schedule panel opens and copies its layout
+ * (components/commit-composer.tsx): `rounded-lg border bg-muted/30 p-3`, a small medium-weight title, one field shaped
+ * like the site's Input, and a muted line of help underneath. It lives in a shadow root, so it reads the site's theme
+ * tokens, which inherit into it, and is untouched by the site's own styles.
  */
 
 :host {
@@ -43,7 +44,6 @@
 
 .head {
   display: flex;
-  min-width: 0;
   align-items: baseline;
   justify-content: space-between;
   gap: 0.5rem;
@@ -55,61 +55,113 @@
   line-height: 1.25rem;
 }
 
-.meta {
-  overflow: hidden;
+/* A quiet signature: who added this panel, without competing with the site. */
+.brand {
   color: var(--muted-foreground, GrayText);
-  font-family: var(--font-geist-mono, ui-monospace, monospace);
-  font-size: 0.75rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  opacity: 0.6;
+  user-select: none;
 }
 
-.options {
+/* Like the site's Input, with an icon inside the way the schedule picker has one. */
+.field {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.field-icon {
+  position: absolute;
+  left: 0.75rem;
+  width: 1rem;
+  height: 1rem;
+  color: var(--muted-foreground, GrayText);
+  pointer-events: none;
+}
+
+.input {
+  width: 100%;
+  height: 2.25rem;
+  padding: 0.25rem 0.75rem 0.25rem 2.25rem;
+  border: 1px solid var(--input, GrayText);
+  border-radius: calc(var(--radius, 0.5rem) - 2px);
+  background: transparent;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+  color: inherit;
+  font: inherit;
+  font-size: 0.875rem;
+  outline: none;
+  transition:
+    border-color 150ms,
+    box-shadow 150ms;
+}
+
+:host-context(.dark) .input {
+  background: color-mix(in srgb, var(--input, transparent) 30%, transparent);
+}
+
+.input::placeholder {
+  color: var(--muted-foreground, GrayText);
+}
+
+.input:focus-visible {
+  border-color: var(--ring, Highlight);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring, Highlight) 50%, transparent);
+}
+
+.input:disabled {
+  opacity: 0.5;
+}
+
+.presets {
   display: flex;
   flex-wrap: wrap;
   gap: 0.375rem;
 }
 
-/* Like the site's `Button variant="outline" size="sm"`. */
-.option {
+.preset {
   display: inline-flex;
-  height: 2rem;
+  height: 1.75rem;
   align-items: center;
   gap: 0.375rem;
-  padding: 0 0.75rem;
-  border: 1px solid var(--input, GrayText);
-  border-radius: calc(var(--radius, 0.5rem) - 2px);
-  background: var(--background, Canvas);
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
-  color: inherit;
+  padding: 0 0.625rem;
+  border: 1px solid var(--border, GrayText);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted-foreground, GrayText);
   font: inherit;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-weight: 500;
   white-space: nowrap;
   cursor: pointer;
   transition:
     background 150ms,
     color 150ms,
+    border-color 150ms,
     opacity 150ms;
 }
 
-.option:hover {
+.preset:hover {
   background: var(--accent, transparent);
+  color: var(--foreground, CanvasText);
 }
 
-.option:focus-visible,
+.preset:focus-visible,
 .link:focus-visible {
   outline: 2px solid var(--ring, Highlight);
   outline-offset: 2px;
 }
 
-.option:disabled {
+.preset:disabled {
   cursor: default;
   opacity: 0.5;
 }
 
-.option[aria-busy='true'] {
+.preset[aria-busy] {
   border-color: var(--primary, LinkText);
+  background: var(--primary-soft, transparent);
   color: var(--primary, LinkText);
   opacity: 1;
 }

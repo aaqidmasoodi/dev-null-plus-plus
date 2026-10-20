@@ -3,11 +3,17 @@
  * is only ever read by the background and the key-entry frame. See SECURITY.md.
  */
 
-export const REWRITE_MODES = ['improve', 'shorten', 'fix', 'casual', 'professional'] as const;
+/** The one-click presets, in the order the composer shows them. */
+export const PRESET_MODES = ['improve', 'shorten', 'fix', 'casual', 'professional'] as const;
+
+/** A preset, or `custom` for the user's own words, which travel in `instruction`. */
+export const REWRITE_MODES = [...PRESET_MODES, 'custom'] as const;
+
+export type PresetMode = (typeof PRESET_MODES)[number];
 
 export type RewriteMode = (typeof REWRITE_MODES)[number];
 
-export const REWRITE_MODE_LABELS: Record<RewriteMode, string> = {
+export const PRESET_LABELS: Record<PresetMode, string> = {
   improve: 'Improve',
   shorten: 'Shorten',
   fix: 'Fix grammar',
@@ -17,6 +23,17 @@ export const REWRITE_MODE_LABELS: Record<RewriteMode, string> = {
 
 export function isRewriteMode(value: unknown): value is RewriteMode {
   return typeof value === 'string' && (REWRITE_MODES as readonly string[]).includes(value);
+}
+
+/** How long the user's own rewrite instruction can be. Enough for "punchier, and mention the benchmark". */
+export const MAX_INSTRUCTION_LENGTH = 200;
+
+/**
+ * A custom instruction is the user's own text, but it still goes into a prompt, so it must be a single short line:
+ * no line breaks, nothing beyond the limit.
+ */
+export function isInstruction(value: unknown): value is string {
+  return typeof value === 'string' && value.length <= MAX_INSTRUCTION_LENGTH && !/[\r\n]/.test(value);
 }
 
 export const PROVIDER_IDS = ['groq', 'openai', 'anthropic', 'xai', 'gemini'] as const;

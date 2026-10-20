@@ -8,6 +8,7 @@ import type { AiCredential } from './vault';
 export interface RewriteRequest {
   text: string;
   mode: RewriteMode;
+  instruction: string;
   maxLength: number;
 }
 
@@ -86,7 +87,7 @@ export async function rewrite(request: RewriteRequest, dependencies: RewriteDepe
       apiKey: credential.apiKey,
       model: credential.model,
       system: rewriteSystemPrompt(request.maxLength),
-      prompt: rewritePrompt(request.mode, draft),
+      prompt: rewritePrompt(request.mode, draft, request.instruction),
     });
   } catch (error) {
     return fail(error instanceof ProviderError ? error.code : 'provider');

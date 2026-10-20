@@ -142,7 +142,6 @@ export default defineContentScript({
     observeDom(sync, ctx.signal);
     store.subscribe(() => {
       syncComposer();
-      composerAi.refresh();
     }, ctx.signal);
     observeAttributes(document.documentElement, LAYOUT_ATTRIBUTES, sync, ctx.signal);
     onRouteChange(sync, ctx.signal);
