@@ -9,7 +9,7 @@ import { findComposers, setComposerText } from '@/site/composer';
 import { composersHtml } from './fixtures/site';
 
 const connected: ExtensionState = {
-  settings: { features: { aiRewrite: true, autoLoadNewCommits: true } },
+  settings: { features: { aiRewrite: true, autoLoadNewCommits: true, linkPreview: true } },
   ai: { provider: 'groq', model: 'llama-3.3-70b-versatile' },
 };
 
@@ -142,14 +142,20 @@ describe.each([
     composerAi.ensure();
     expect(aiButtons()).toHaveLength(0);
 
-    store.set({ ...connected, settings: { features: { aiRewrite: false, autoLoadNewCommits: true } } });
+    store.set({
+      ...connected,
+      settings: { features: { aiRewrite: false, autoLoadNewCommits: true, linkPreview: true } },
+    });
     composerAi.ensure();
     expect(aiButtons()).toHaveLength(0);
   });
 
   it('removes its buttons, wrappers included, when the feature is turned off', () => {
     composerAi.ensure();
-    store.set({ ...connected, settings: { features: { aiRewrite: false, autoLoadNewCommits: true } } });
+    store.set({
+      ...connected,
+      settings: { features: { aiRewrite: false, autoLoadNewCommits: true, linkPreview: true } },
+    });
     composerAi.ensure();
 
     expect(aiButtons()).toHaveLength(0);

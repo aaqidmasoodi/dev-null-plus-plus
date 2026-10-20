@@ -8,6 +8,9 @@ import { writeSettings, type SettingsStore } from '@/core/settings';
 import { ComposerAi } from '@/features/ai-rewrite/composer-ai';
 import { AutoLoadNewCommits } from '@/features/auto-load/auto-load';
 import { autoLoadSection } from '@/features/auto-load/settings-section';
+import { LinkLongPress } from '@/features/link-preview/long-press';
+import { PreviewDialog } from '@/features/link-preview/preview-dialog';
+import { linkPreviewSection } from '@/features/link-preview/settings-section';
 import { aiSection } from '@/features/ai-rewrite/settings-section';
 import { loadExtensionState, type ExtensionState } from '@/core/extension-state';
 import {
@@ -95,6 +98,7 @@ export default defineContentScript({
           signal: ctx.signal,
         }),
         autoLoadSection({ store, saveSettings: writeSettings, signal: ctx.signal }),
+        linkPreviewSection({ store, saveSettings: writeSettings, signal: ctx.signal }),
       ],
     });
     const composerAi = new ComposerAi({
@@ -115,6 +119,25 @@ export default defineContentScript({
       }
     };
     const autoLoad = new AutoLoadNewCommits({ store, signal: ctx.signal });
+    const preview = new PreviewDialog();
+
+    // Press and hold an outside link to preview it. Read at each press, so switching it off takes effect at once.
+    new LinkLongPress({
+      enabled: () => store.value.settings.features.linkPreview && !preview.isOpen,
+      onOpen: (url, origin) => {
+        try {
+          preview.open(url, origin);
+        } catch (error) {
+          logger.error('Could not open the preview.', error);
+        }
+      },
+      signal: ctx.signal,
+    });
+    store.subscribe(({ settings }) => {
+      if (!settings.features.linkPreview) {
+        preview.close();
+      }
+    }, ctx.signal);
     /** Loads new commits when their pill appears. Also separate, so a failure here touches nothing else. */
     const syncAutoLoad = (): void => {
       try {
@@ -194,6 +217,7 @@ export default defineContentScript({
       settingsPage.destroy();
       composerAi.destroy();
       autoLoad.destroy();
+      preview.destroy();
       removeTakeover();
     });
 

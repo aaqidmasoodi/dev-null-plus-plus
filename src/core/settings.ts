@@ -12,6 +12,8 @@ export interface Settings {
     aiRewrite: boolean;
     /** Loading new commits as soon as the log's "N new commits" pill appears. */
     autoLoadNewCommits: boolean;
+    /** Previewing a link in a dialog by pressing and holding it. */
+    linkPreview: boolean;
   };
 }
 
@@ -23,6 +25,7 @@ export const DEFAULT_SETTINGS: Settings = {
   features: {
     aiRewrite: true,
     autoLoadNewCommits: true,
+    linkPreview: true,
   },
 };
 

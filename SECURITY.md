@@ -69,6 +69,16 @@ The extension has three parts, trusted in this order:
 - The logger redacts anything shaped like an API key or bearer token, and drops stacks.
 - Only what a feature needs leaves the browser, only to the provider you configured, and only when you act.
 
+**Link previews**
+
+- A previewed page loads in a `credentialless` frame: none of your cookies or logins for that site, and empty storage
+  that is thrown away when the preview closes. The e2e suite signs in to the previewed site and checks that the page
+  sees nothing.
+- The frame is sandboxed without top navigation, modals or downloads, sends no referrer and is granted no powerful
+  features (`allow=""`). The page is a different origin from dev-null.sh, so it cannot reach the log behind it.
+- Previews never widen permissions. Sites that refuse to be framed stay refused; the preview offers to open them in a
+  new tab instead.
+
 **Features**
 
 - Every feature can be turned off from the /dev/null++ settings page, and checks its setting before touching the page.

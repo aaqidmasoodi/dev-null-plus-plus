@@ -16,6 +16,9 @@ Every feature can be switched off on the settings page.
 - **Load new commits automatically.** When the log's "N new commits" pill appears, they load on their own, with a
   short animation, exactly as if you had clicked it. Only while you are at the top of the log: further down, nothing
   moves, and they load as soon as you scroll back up.
+- **Link preview.** Press and hold a link to open it in a large window over the log, with phone, tablet and desktop
+  widths and resizable edges. It opens like a private window: none of your cookies or logins. Some sites refuse to be
+  shown inside another page; those offer to open in a new tab. A normal click is unchanged.
 
 ## Install (development build)
 
@@ -68,11 +71,13 @@ src/
     takeover.ts                 Hides the site's page while ours shows
     composer.ts                 Finding the composers and writing into them
     log.ts                      The log's new-commits pill and feed
+    links.ts                    Which links can be previewed
   features/
     nav-item/                   The "/dev/null++" link in the left navigation
     settings-page/              The settings page it opens, built from sections
     ai-rewrite/                 The composer's AI button and panel, and its settings section
     auto-load/                  Loading new commits when the log's pill appears
+    link-preview/               Press and hold a link to preview it in a private window
 ```
 
 A few rules keep this working while dev-null.sh deploys many times a day.
