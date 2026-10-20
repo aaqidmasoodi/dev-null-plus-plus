@@ -17,6 +17,7 @@ import { composerMaxLength, findComposers, setComposerText, type ComposerParts }
 
 import styles from './panel.css?inline';
 import type { ExtensionState } from './state';
+import { SiteTooltip, TOOLTIP_ROLE } from './tooltip';
 
 export const AI_BUTTON_ROLE = 'ai-button';
 export const AI_PANEL_ROLE = 'ai-panel';
@@ -89,6 +90,7 @@ class ComposerAiInstance {
   /** What goes into the toolbar: the button, or a wrapper like the site's own around it. */
   readonly #slot: HTMLElement;
   readonly #icon: SVGSVGElement;
+  readonly #tooltip: SiteTooltip;
   readonly #host: HTMLElement;
   readonly #input: HTMLInputElement;
   readonly #presets: Map<PresetMode, HTMLButtonElement>;
@@ -116,7 +118,6 @@ class ComposerAiInstance {
         attrs: {
           type: 'button',
           'aria-label': 'Rewrite',
-          title: 'Rewrite',
           'aria-expanded': 'false',
           'aria-controls': this.#panelId,
           'data-test': 'dnpp-ai-button',
@@ -131,6 +132,8 @@ class ComposerAiInstance {
     this.#slot =
       parts.slot === parts.anchor ? this.#button : el('span', { className: parts.slot.className }, [this.#button]);
     markOwned(this.#slot, AI_BUTTON_ROLE);
+    // The site's own tooltip, not the browser's: shown on the wrapper, like theirs, and following the toggle's state.
+    this.#tooltip = new SiteTooltip(this.#slot, this.#button, () => (this.#open ? 'Close rewrite' : 'Rewrite'));
 
     this.#input = el('input', {
       className: 'input',
@@ -213,7 +216,7 @@ class ComposerAiInstance {
 
   /** The elements this instance put on the page, attached or not. */
   get elements(): readonly Element[] {
-    return [this.#slot, this.#host];
+    return [this.#slot, this.#host, this.#tooltip.element];
   }
 
   /** Puts the button and, when open, the panel where they belong. Cheap when nothing moved. */
@@ -247,6 +250,7 @@ class ComposerAiInstance {
       this.#parts.textarea.readOnly = false;
     }
 
+    this.#tooltip.destroy();
     this.#slot.remove();
     this.#host.remove();
   }
@@ -539,7 +543,7 @@ export class ComposerAi {
     const ours = new Set([...this.#instances.values()].flatMap((instance) => instance.elements));
 
     for (const element of document.querySelectorAll(
-      `${ownedSelector(AI_BUTTON_ROLE)}, ${ownedSelector(AI_PANEL_ROLE)}`,
+      `${ownedSelector(AI_BUTTON_ROLE)}, ${ownedSelector(AI_PANEL_ROLE)}, ${ownedSelector(TOOLTIP_ROLE)}`,
     )) {
       if (!ours.has(element)) {
         element.remove();

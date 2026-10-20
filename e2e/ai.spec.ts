@@ -156,6 +156,32 @@ test.describe('composer', () => {
     await expect(commitDraft(page)).toHaveValue('shipd the new parser lol');
   });
 
+  test('shows the site’s kind of tooltip on hover', async ({ page, context, background }) => {
+    await fakeOpenAi(context);
+    await serveComposerFixture(context);
+    await connect(context, background);
+    await page.goto(FIXTURE);
+    await aiButton(page).hover();
+
+    const tooltip = page.getByRole('tooltip');
+
+    await expect(tooltip).toBeVisible();
+    await expect(tooltip).toHaveText('Rewrite');
+    await expect(aiButton(page)).not.toHaveAttribute('title');
+
+    // Centred above the button, clear of it.
+    const button = await aiButton(page).boundingBox();
+    const box = await tooltip.boundingBox();
+
+    expect(box && button && box.y + box.height).toBeLessThan(button?.y ?? 0);
+    expect(
+      Math.abs((box?.x ?? 0) + (box?.width ?? 0) / 2 - ((button?.x ?? 0) + (button?.width ?? 0) / 2)),
+    ).toBeLessThan(2);
+
+    await page.mouse.move(0, 0);
+    await expect(tooltip).toBeHidden();
+  });
+
   test('explains a rejected key without leaking it', async ({ page, context, background }) => {
     const provider = await fakeOpenAi(context);
 

@@ -298,6 +298,70 @@ describe.each([
     stale.destroy();
   });
 
+  describe('tooltip', () => {
+    const tooltip = (): HTMLElement | null => document.querySelector('[data-dnpp="tooltip"]');
+    const trigger = (): Element => slotOf(commitButton());
+
+    it('shows the site’s kind of tooltip on hover, not the browser’s', () => {
+      composerAi.ensure();
+
+      expect(commitButton().hasAttribute('title')).toBe(false);
+
+      trigger().dispatchEvent(new Event('pointerenter'));
+
+      expect(tooltip()?.getAttribute('role')).toBe('tooltip');
+      expect(tooltip()?.shadowRoot?.querySelector('.tip')?.textContent).toBe('Rewrite');
+      expect(tooltip()?.parentElement).toBe(document.body);
+      expect(commitButton().getAttribute('aria-describedby')).toBe(tooltip()?.id);
+
+      trigger().dispatchEvent(new Event('pointerleave'));
+
+      expect(tooltip()).toBeNull();
+      expect(commitButton().hasAttribute('aria-describedby')).toBe(false);
+    });
+
+    it('shows on keyboard focus too', () => {
+      composerAi.ensure();
+      commitButton().dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+
+      expect(tooltip()).not.toBeNull();
+    });
+
+    it('says what a click will do, like the schedule toggle', () => {
+      composerAi.ensure();
+      commitButton().click();
+      trigger().dispatchEvent(new Event('pointerenter'));
+
+      expect(tooltip()?.shadowRoot?.querySelector('.tip')?.textContent).toBe('Close rewrite');
+    });
+
+    it('hides on press and on Escape', () => {
+      composerAi.ensure();
+      trigger().dispatchEvent(new Event('pointerenter'));
+      trigger().dispatchEvent(new Event('pointerdown'));
+      expect(tooltip()).toBeNull();
+
+      trigger().dispatchEvent(new Event('pointerenter'));
+      commitButton().dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      expect(tooltip()).toBeNull();
+    });
+
+    it('shows one at a time, and goes with the button', () => {
+      composerAi.ensure();
+
+      const [commit, reply] = aiButtons();
+
+      commit && slotOf(commit).dispatchEvent(new Event('pointerenter'));
+      reply && slotOf(reply).dispatchEvent(new Event('pointerenter'));
+
+      expect(document.querySelectorAll('[data-dnpp="tooltip"]')).toHaveLength(1);
+
+      composerAi.destroy();
+
+      expect(tooltip()).toBeNull();
+    });
+  });
+
   it('keeps key presses in the panel away from the site’s shortcuts', () => {
     const siteShortcut = vi.fn();
 

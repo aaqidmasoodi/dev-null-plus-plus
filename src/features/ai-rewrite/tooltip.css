@@ -1,0 +1,50 @@
+/*
+ * Mirrors the site's tooltip (components/ui/tooltip.tsx, a Radix tooltip): a small popover card above its trigger with
+ * an arrow, fading and zooming in. Lives in a shadow root on <body>, so it reads the site's theme tokens and sits above
+ * everything, like Radix's portal.
+ */
+
+:host {
+  position: fixed;
+  z-index: 50;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+.tip {
+  position: relative;
+  max-width: 24rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border, GrayText);
+  border-radius: calc(var(--radius, 0.5rem));
+  background: var(--popover, Canvas);
+  box-shadow: 0 12px 32px -12px rgb(0 0 0 / 0.35);
+  color: var(--popover-foreground, CanvasText);
+  font-family: var(--font-geist, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.75rem;
+  line-height: 1rem;
+  white-space: nowrap;
+}
+
+/* A small square turned 45 degrees, half under the card, with only its outer edges bordered. */
+.arrow {
+  position: absolute;
+  left: 50%;
+  width: 0.625rem;
+  height: 0.625rem;
+  border-right: 1px solid var(--border, GrayText);
+  border-bottom: 1px solid var(--border, GrayText);
+  border-radius: 2px;
+  background: var(--popover, Canvas);
+}
+
+:host([data-side='top']) .arrow {
+  bottom: -0.3125rem;
+  transform: translateX(-50%) translateY(1px) rotate(45deg);
+}
+
+:host([data-side='bottom']) .arrow {
+  top: -0.3125rem;
+  transform: translateX(-50%) translateY(-1px) rotate(225deg);
+}
