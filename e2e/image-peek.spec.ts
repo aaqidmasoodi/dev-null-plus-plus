@@ -87,9 +87,8 @@ test('holding an image peeks at it, and letting go puts it back', async ({ page,
 
 test('a quick click still opens the image as usual', async ({ page }) => {
   await addImages(page);
-  await press(page);
-  await page.waitForTimeout(60);
-  await page.mouse.up();
+  // A real click: press and release back to back. A timed hold can drift past a click on a slow machine.
+  await page.locator('#dnpp-peek-first').click();
 
   await expect(page.locator('[data-dnpp="image-peek"]')).toHaveCount(0);
   await expect.poll(() => new URL(page.url()).hash).toBe('#dnpp-photo-first');
@@ -107,6 +106,24 @@ test('the page holds still while an image is out', async ({ page }) => {
 
   expect(await page.evaluate(() => window.scrollY)).toBe(before);
 
+  await page.mouse.up();
+  await expect(page.locator('[data-dnpp="image-peek"]')).toHaveCount(0);
+});
+
+test('the first press works even when something else had focus', async ({ page }) => {
+  await addImages(page);
+  // As after starring or replying: a button has focus, and the press moves it to the image's link.
+  await page.evaluate(() => {
+    const button = document.createElement('button');
+
+    button.id = 'dnpp-test-focus';
+    button.textContent = 'Star';
+    document.querySelector('[data-commit]')?.before(button);
+    button.focus();
+  });
+  await press(page);
+
+  await expect(page.locator('[data-dnpp="image-peek"]')).toHaveCount(1);
   await page.mouse.up();
   await expect(page.locator('[data-dnpp="image-peek"]')).toHaveCount(0);
 });

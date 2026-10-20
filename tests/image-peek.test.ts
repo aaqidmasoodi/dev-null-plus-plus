@@ -141,9 +141,9 @@ describe('press and hold an image', () => {
     document.body.innerHTML = '<div id="app"><a href="/photo"><img src="https://dev-null.sh/a.png" alt="A"></a></div>';
     image = firstImage();
     Object.defineProperties(image, {
-      complete: { value: true },
-      naturalWidth: { value: 800 },
-      naturalHeight: { value: 600 },
+      complete: { value: true, writable: true },
+      naturalWidth: { value: 800, writable: true },
+      naturalHeight: { value: 600, writable: true },
     });
     image.getBoundingClientRect = () => DOMRect.fromRect({ x: 10, y: 20, width: 200, height: 150 });
     image.decode = () => Promise.resolve();
@@ -237,6 +237,62 @@ describe('press and hold an image', () => {
     vi.advanceTimersByTime(PEEK_DELAY_MS);
 
     expect(overlay()).toBeNull();
+  });
+
+  it('is not cancelled by the press moving focus on the page', () => {
+    // Pressing a link focuses it, which blurs whatever had focus, such as a button used a moment ago.
+    document.body.insertAdjacentHTML('beforeend', '<button id="used">Star</button>');
+    document.getElementById('used')?.focus();
+    pointer('pointerdown');
+    document.getElementById('used')?.blur();
+    vi.advanceTimersByTime(PEEK_DELAY_MS);
+
+    expect(overlay()).not.toBeNull();
+  });
+
+  it('is sent back when the window itself loses focus', () => {
+    pointer('pointerdown');
+    vi.advanceTimersByTime(PEEK_DELAY_MS + GROW_MS);
+    window.dispatchEvent(new FocusEvent('blur'));
+    vi.advanceTimersByTime(RETURN_MS + 200);
+
+    expect(overlay()).toBeNull();
+  });
+
+  it('waits, while held, for a picture that is still loading', () => {
+    const loaded = (complete: boolean, width: number): void => {
+      Object.assign(image, { complete, naturalWidth: width, naturalHeight: width });
+    };
+
+    loaded(false, 0);
+    pointer('pointerdown');
+    vi.advanceTimersByTime(PEEK_DELAY_MS + 300);
+    expect(overlay()).toBeNull();
+
+    loaded(true, 800);
+    image.dispatchEvent(new Event('load'));
+    expect(overlay()).not.toBeNull();
+  });
+
+  it('lets go quietly of a picture that turns out broken, leaving the click alone', () => {
+    Object.assign(image, { complete: false, naturalWidth: 0, naturalHeight: 0 });
+    pointer('pointerdown');
+    vi.advanceTimersByTime(PEEK_DELAY_MS);
+    Object.assign(image, { complete: true });
+    image.dispatchEvent(new Event('error'));
+    pointer('pointerup');
+
+    expect(overlay()).toBeNull();
+    // It was held past a click, so the click the release ends in is still not a click.
+    expect(click().defaultPrevented).toBe(true);
+
+    // Pressing an image that is already broken is an ordinary click.
+    pointer('pointerdown');
+    vi.advanceTimersByTime(PEEK_DELAY_MS);
+    pointer('pointerup');
+
+    expect(overlay()).toBeNull();
+    expect(click().defaultPrevented).toBe(false);
   });
 
   it('does nothing when turned off, and cleans up when stopped', () => {

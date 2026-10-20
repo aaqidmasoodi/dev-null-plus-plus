@@ -1,5 +1,5 @@
 import { el, markOwned, ownedSelector } from '@/core/dom';
-import { peekableImage } from '@/site/images';
+import { isReadyToPeek, peekCandidate } from '@/site/images';
 
 import {
   drawnRect,
@@ -20,6 +20,8 @@ export const PEEK_DELAY_MS = 150;
 export const GROW_MS = 340;
 /** How long it takes to go back. Quicker than growing: letting go should feel immediate. */
 export const RETURN_MS = 240;
+/** How long a held press waits for a picture that is still loading. */
+const LOAD_WAIT_MS = 4_000;
 /** How much faster a grow cut short retraces its path back. */
 const REVERSE_SPEED = 1.6;
 /** A pointer that wanders further than this before the peek is selecting text or dragging, not holding. */
@@ -322,6 +324,8 @@ interface Press {
   y: number;
   pointerId: number;
   timer: number;
+  /** Set while held on a picture that is still loading. */
+  waiting: AbortController | null;
 }
 
 /**
@@ -351,7 +355,9 @@ export class ImagePeek {
     window.addEventListener('pointermove', this.#onPointerMove, { ...listen, passive: true });
     window.addEventListener('pointerup', this.#release, listen);
     window.addEventListener('pointercancel', this.#release, listen);
-    window.addEventListener('blur', this.#release, listen);
+    // Not captured: a captured `blur` also hears every element on the page losing focus, as one does whenever a press
+    // moves focus to the image's link. Only the window itself losing focus sends the image back.
+    window.addEventListener('blur', this.#onWindowBlur, { signal });
     window.addEventListener('scroll', this.#onScroll, { ...listen, passive: true });
     window.addEventListener('wheel', this.#onWheel, { ...listen, passive: false });
     window.addEventListener('keydown', this.#onKeyDown, listen);
@@ -395,7 +401,7 @@ export class ImagePeek {
       return;
     }
 
-    const image = peekableImage(event.target);
+    const image = peekCandidate(event.target);
 
     if (image === null) {
       return;
@@ -409,6 +415,7 @@ export class ImagePeek {
       y: event.clientY,
       pointerId: event.pointerId,
       timer: window.setTimeout(this.#startPeek, PEEK_DELAY_MS),
+      waiting: null,
     };
   };
 
@@ -429,13 +436,21 @@ export class ImagePeek {
       return;
     }
 
-    this.#press = null;
+    if (!isReadyToPeek(press.image)) {
+      if (press.image.complete || press.waiting !== null) {
+        // It arrived, but failed or is only an icon: let the press be an ordinary one.
+        this.#cancelPress();
+      } else {
+        this.#swallowClickOn(press.image);
+        this.#waitForPicture(press);
+      }
 
-    // The click the release ends in lands on the picture, or the link around it. It must not also open it.
-    this.#swallow = {
-      target: press.image.closest('a, button') ?? press.image,
-      until: performance.now() + SWALLOW_MS,
-    };
+      return;
+    }
+
+    this.#press = null;
+    press.waiting?.abort();
+    this.#swallowClickOn(press.image);
 
     const peek = new Peek(press.image, () => {
       if (this.#peek === peek) {
@@ -447,9 +462,45 @@ export class ImagePeek {
     peek.grow();
   };
 
+  /** Held past a click: the click the release ends in lands on the picture, or its link, and must not also open it. */
+  #swallowClickOn(image: HTMLImageElement): void {
+    this.#swallow = { target: image.closest('a, button') ?? image, until: performance.now() + SWALLOW_MS };
+  }
+
+  /**
+   * The picture was scrolled to a moment ago and has not arrived yet. While the press is held, the peek starts as soon
+   * as it does; one that fails, or turns out to be an icon, is let go quietly.
+   */
+  #waitForPicture(press: Press): void {
+    const waiting = new AbortController();
+    const settle = (): void => {
+      waiting.abort();
+
+      if (this.#press === press) {
+        if (isReadyToPeek(press.image)) {
+          this.#startPeek();
+        } else {
+          this.#cancelPress();
+        }
+      }
+    };
+
+    press.waiting = waiting;
+    press.image.addEventListener('load', settle, { once: true, signal: waiting.signal });
+    press.image.addEventListener('error', settle, { once: true, signal: waiting.signal });
+    press.timer = window.setTimeout(settle, LOAD_WAIT_MS);
+  }
+
   readonly #release = (): void => {
     this.#cancelPress();
     this.#peek?.release();
+  };
+
+  readonly #onWindowBlur = (event: FocusEvent): void => {
+    // An element losing focus targets that element; the window losing focus targets the window.
+    if (!(event.target instanceof Node)) {
+      this.#release();
+    }
   };
 
   readonly #onScroll = (): void => {
@@ -506,6 +557,7 @@ export class ImagePeek {
   #cancelPress(): void {
     if (this.#press !== null) {
       clearTimeout(this.#press.timer);
+      this.#press.waiting?.abort();
       this.#press = null;
     }
   }

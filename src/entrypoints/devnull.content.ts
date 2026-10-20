@@ -27,7 +27,7 @@ import { NavItem } from '@/features/nav-item/nav-item';
 import { SettingsNavigator } from '@/features/settings-page/navigator';
 import { aboutSection } from '@/features/settings-page/sections';
 import { SettingsPage } from '@/features/settings-page/settings-page';
-import { peekableImage } from '@/site/images';
+import { peekCandidate } from '@/site/images';
 import { isPlainClick } from '@/site/navigate';
 import { findHomePath, isFullScreenLayout, LAYOUT_ATTRIBUTES } from '@/site/selectors';
 import { removeTakeover } from '@/site/takeover';
@@ -133,7 +133,7 @@ export default defineContentScript({
     new LinkLongPress({
       enabled: () => store.value.settings.features.linkPreview && !preview.isOpen && !imagePeek.isPeeking,
       // A press on a picture is a peek, when that is on.
-      ignore: (target) => imagePeekOn() && peekableImage(target) !== null,
+      ignore: (target) => imagePeekOn() && peekCandidate(target) !== null,
       onPress: () => {
         preview.prepare();
       },
