@@ -123,6 +123,11 @@ follows.
 - `https://api.groq.com/*`, optional: asked for only when you connect Groq, whose API does not otherwise allow
   extensions to call it, and given back when you disconnect.
 
+## Logo
+
+The dev/null++ logo is © Aaqid Masoodi, all rights reserved, and is not covered by the MIT licence of the code. It may
+not be used outside dev/null++ without permission. See [LOGO.md](LOGO.md).
+
 ## Release
 
 `npm run zip` produces the Chrome Web Store upload in `.output/`. Bump `version` in `package.json` first. The manifest
