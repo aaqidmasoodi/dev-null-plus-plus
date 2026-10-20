@@ -214,7 +214,14 @@ describe('prompt', () => {
 
 describe('rewrite', () => {
   const settings = (aiRewrite: boolean): Settings => ({
-    features: { aiRewrite, autoLoadNewCommits: true, linkPreview: true, imagePeek: true },
+    features: {
+      aiRewrite,
+      autoLoadNewCommits: true,
+      linkPreview: true,
+      imagePeek: true,
+      pictureInPicture: true,
+      autoPictureInPicture: true,
+    },
   });
   const json = (value: unknown): Promise<string> => Promise.resolve(JSON.stringify(value));
   const dependencies = (overrides: Partial<RewriteDependencies> = {}): RewriteDependencies => ({
@@ -515,10 +522,24 @@ describe('message and data validation', () => {
     expect(parseSettings(undefined)).toEqual(DEFAULT_SETTINGS);
     expect(parseSettings({ features: { aiRewrite: 'yes' } })).toEqual(DEFAULT_SETTINGS);
     expect(parseSettings({ features: { aiRewrite: false } })).toEqual({
-      features: { aiRewrite: false, autoLoadNewCommits: true, linkPreview: true, imagePeek: true },
+      features: {
+        aiRewrite: false,
+        autoLoadNewCommits: true,
+        linkPreview: true,
+        imagePeek: true,
+        pictureInPicture: true,
+        autoPictureInPicture: true,
+      },
     });
     expect(parseSettings({ features: { autoLoadNewCommits: false, unknown: true } })).toEqual({
-      features: { aiRewrite: true, autoLoadNewCommits: false, linkPreview: true, imagePeek: true },
+      features: {
+        aiRewrite: true,
+        autoLoadNewCommits: false,
+        linkPreview: true,
+        imagePeek: true,
+        pictureInPicture: true,
+        autoPictureInPicture: true,
+      },
     });
     expect(parseAiStatus({ provider: 'openai', model: 'gpt-5' })).toEqual({ provider: 'openai', model: 'gpt-5' });
     expect(parseAiStatus({ provider: 'openai', model: 'bad model id!' })).toBeNull();

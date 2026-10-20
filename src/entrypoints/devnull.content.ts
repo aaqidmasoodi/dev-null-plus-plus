@@ -10,6 +10,8 @@ import { AutoLoadNewCommits } from '@/features/auto-load/auto-load';
 import { autoLoadSection } from '@/features/auto-load/settings-section';
 import { ImagePeek } from '@/features/image-peek/image-peek';
 import { imagePeekSection } from '@/features/image-peek/settings-section';
+import { PictureInPicture } from '@/features/pip/pip';
+import { pipSection } from '@/features/pip/settings-section';
 import { LinkLongPress } from '@/features/link-preview/long-press';
 import { PreviewDialog } from '@/features/link-preview/preview-dialog';
 import { linkPreviewSection } from '@/features/link-preview/settings-section';
@@ -103,6 +105,7 @@ export default defineContentScript({
         autoLoadSection({ store, saveSettings: writeSettings, signal: ctx.signal }),
         linkPreviewSection({ store, saveSettings: writeSettings, signal: ctx.signal }),
         imagePeekSection({ store, saveSettings: writeSettings, signal: ctx.signal }),
+        pipSection({ store, saveSettings: writeSettings, signal: ctx.signal }),
       ],
     });
     const composerAi = new ComposerAi({
@@ -128,6 +131,13 @@ export default defineContentScript({
 
     // Press and hold an image to peek at it. Set up before link previews: an image inside a link peeks.
     const imagePeek = new ImagePeek({ enabled: () => imagePeekOn() && !preview.isOpen, signal: ctx.signal });
+
+    // Keep a playing video going in a floating player while scrolling and browsing.
+    const pip = new PictureInPicture({
+      enabled: () => store.value.settings.features.pictureInPicture,
+      automatic: () => store.value.settings.features.autoPictureInPicture,
+      signal: ctx.signal,
+    });
 
     // Press and hold an outside link to preview it. Read at each press, so switching it off takes effect at once.
     new LinkLongPress({
@@ -156,6 +166,8 @@ export default defineContentScript({
       if (!settings.features.linkPreview) {
         preview.close();
       }
+
+      pip.refresh();
 
       if (!settings.features.imagePeek) {
         imagePeek.destroy();
@@ -249,6 +261,7 @@ export default defineContentScript({
       autoLoad.destroy();
       preview.destroy();
       imagePeek.destroy();
+      pip.destroy();
       removeTakeover();
     });
 

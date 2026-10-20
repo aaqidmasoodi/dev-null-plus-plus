@@ -16,6 +16,10 @@ export interface Settings {
     linkPreview: boolean;
     /** Peeking at an image, full size, by pressing and holding it. */
     imagePeek: boolean;
+    /** Keeping a video playing in a floating player while scrolling and browsing. */
+    pictureInPicture: boolean;
+    /** A playing video floating by itself when scrolled past or its page is left. */
+    autoPictureInPicture: boolean;
   };
 }
 
@@ -29,6 +33,8 @@ export const DEFAULT_SETTINGS: Settings = {
     autoLoadNewCommits: true,
     linkPreview: true,
     imagePeek: true,
+    pictureInPicture: true,
+    autoPictureInPicture: true,
   },
 };
 

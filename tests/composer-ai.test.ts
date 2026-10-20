@@ -9,7 +9,16 @@ import { findComposers, setComposerText } from '@/site/composer';
 import { composersHtml } from './fixtures/site';
 
 const connected: ExtensionState = {
-  settings: { features: { aiRewrite: true, autoLoadNewCommits: true, linkPreview: true, imagePeek: true } },
+  settings: {
+    features: {
+      aiRewrite: true,
+      autoLoadNewCommits: true,
+      linkPreview: true,
+      imagePeek: true,
+      pictureInPicture: true,
+      autoPictureInPicture: true,
+    },
+  },
   ai: { provider: 'groq', model: 'llama-3.3-70b-versatile' },
 };
 
@@ -144,7 +153,16 @@ describe.each([
 
     store.set({
       ...connected,
-      settings: { features: { aiRewrite: false, autoLoadNewCommits: true, linkPreview: true, imagePeek: true } },
+      settings: {
+        features: {
+          aiRewrite: false,
+          autoLoadNewCommits: true,
+          linkPreview: true,
+          imagePeek: true,
+          pictureInPicture: true,
+          autoPictureInPicture: true,
+        },
+      },
     });
     composerAi.ensure();
     expect(aiButtons()).toHaveLength(0);
@@ -154,7 +172,16 @@ describe.each([
     composerAi.ensure();
     store.set({
       ...connected,
-      settings: { features: { aiRewrite: false, autoLoadNewCommits: true, linkPreview: true, imagePeek: true } },
+      settings: {
+        features: {
+          aiRewrite: false,
+          autoLoadNewCommits: true,
+          linkPreview: true,
+          imagePeek: true,
+          pictureInPicture: true,
+          autoPictureInPicture: true,
+        },
+      },
     });
     composerAi.ensure();
 
