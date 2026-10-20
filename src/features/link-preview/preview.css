@@ -250,6 +250,83 @@ iframe {
   opacity: 1;
 }
 
+/* A page is hidden until it has had a moment to refuse, so the browser's grey error page is never seen. */
+iframe[data-loading] {
+  visibility: hidden;
+}
+
+/* A page that cannot be shown here: a plain notice in the middle, instead of the browser's error page. */
+
+.notice {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1.5rem;
+  background: var(--card, Canvas);
+  color: var(--muted-foreground, GrayText);
+  text-align: center;
+}
+
+.notice[hidden] {
+  display: none;
+}
+
+.notice > svg {
+  width: 2.5rem;
+  height: 2.5rem;
+  margin-bottom: 0.5rem;
+  stroke-width: 1.5;
+}
+
+.notice strong {
+  color: var(--foreground, CanvasText);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.notice span {
+  max-width: 22rem;
+}
+
+.notice a {
+  display: inline-flex;
+  height: 2.25rem;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding: 0 1rem;
+  border-radius: calc(var(--radius, 0.5rem) - 2px);
+  background: var(--primary, LinkText);
+  color: var(--primary-foreground, Canvas);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.notice a:hover {
+  opacity: 0.9;
+}
+
+.notice a:focus-visible {
+  outline: 2px solid var(--ring, Highlight);
+  outline-offset: 2px;
+}
+
+.notice a svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* Widths and resizing mean nothing without a page. */
+dialog[data-failed] .sizes,
+dialog[data-failed] .handle {
+  display: none;
+}
+
 @media (width < 40rem) {
   .sizes,
   .path {

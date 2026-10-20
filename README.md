@@ -114,6 +114,8 @@ follows.
 - `https://dev-null.sh/*`: to run on dev-null.sh, and nowhere else.
 - `scripting`: to start in tabs that were already open when the extension was installed or updated.
 - `storage`: to remember your settings and which AI provider is connected (never the key itself).
+- `webNavigation`: to know when a link preview's page refuses to be shown, so it can say so plainly. Chrome lists it
+  as "Read your browsing history"; it is only ever read for frames inside dev-null.sh, and nothing is kept.
 - `https://api.groq.com/*`, optional: asked for only when you connect Groq, whose API does not otherwise allow
   extensions to call it, and given back when you disconnect.
 

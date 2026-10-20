@@ -109,3 +109,22 @@ test('sites that refuse to be framed are left as plain links', async ({ context,
   expect((await opened).url()).toBe(github);
   await expect(page.locator('[data-test="dnpp-link-preview"]')).toBeHidden();
 });
+
+test('a site that refuses to be shown gets a plain notice, not the browser’s error page', async ({ context, page }) => {
+  const refusing = 'https://example.com/dnpp-refuses';
+
+  await context.route(`${refusing}*`, (route) =>
+    route.fulfill({ contentType: 'text/html', headers: { 'X-Frame-Options': 'DENY' }, body: 'no framing' }),
+  );
+  await addLink(page, refusing);
+  await hold(page, 700);
+
+  const dialog = page.locator('[data-test="dnpp-link-preview"]');
+  const notice = dialog.locator('.notice');
+
+  await expect(notice).toBeVisible();
+  await expect(notice).toContainText('This site can’t be opened here');
+  await expect(notice.locator('a')).toHaveAttribute('href', refusing);
+  await expect(dialog.locator('iframe')).toHaveCount(0);
+  await expect(dialog.locator('.sizes')).toBeHidden();
+});

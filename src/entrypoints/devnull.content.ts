@@ -211,8 +211,15 @@ export default defineContentScript({
     onRouteChange(sync, ctx.signal);
 
     const onMessage = (message: unknown, sender: Browser.runtime.MessageSender): undefined => {
-      if (isFromOwnBackground(sender, browser.runtime.id) && isContentMessage(message)) {
+      if (!isFromOwnBackground(sender, browser.runtime.id) || !isContentMessage(message)) {
+        return undefined;
+      }
+
+      if (message.type === 'dnpp:open-settings') {
         openSettings();
+      } else {
+        // The preview checks the page is the one it is showing: other frames on the page are none of its business.
+        preview.showFailure(message.url, message.reason);
       }
 
       return undefined;

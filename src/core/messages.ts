@@ -10,15 +10,41 @@ export interface OpenSettingsMessage {
   type: 'dnpp:open-settings';
 }
 
+/** The longest page address a frame failure carries. Longer ones are not reported. */
+export const MAX_FRAME_URL_LENGTH = 2_048;
+
+/**
+ * A page could not be shown in a frame of the tab: it refused to be framed (`refused`), or failed to load (`failed`).
+ * The content script shows its notice only if `url` is the page its own preview is showing.
+ */
+export interface FrameFailedMessage {
+  type: 'dnpp:frame-failed';
+  url: string;
+  reason: 'refused' | 'failed';
+}
+
 /** Messages the background sends to the content script on dev-null.sh tabs. */
-export type ContentMessage = OpenSettingsMessage;
+export type ContentMessage = OpenSettingsMessage | FrameFailedMessage;
 
 export function isContentMessage(value: unknown): value is ContentMessage {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+
+  const message = value as Record<string, unknown>;
+  const keys = Object.keys(message).sort().join();
+
+  if (message.type === 'dnpp:open-settings') {
+    return keys === 'type';
+  }
+
   return (
-    typeof value === 'object' &&
-    value !== null &&
-    Object.keys(value).length === 1 &&
-    (value as { type?: unknown }).type === 'dnpp:open-settings'
+    message.type === 'dnpp:frame-failed' &&
+    keys === 'reason,type,url' &&
+    typeof message.url === 'string' &&
+    message.url.startsWith('https://') &&
+    message.url.length <= MAX_FRAME_URL_LENGTH &&
+    (message.reason === 'refused' || message.reason === 'failed')
   );
 }
 

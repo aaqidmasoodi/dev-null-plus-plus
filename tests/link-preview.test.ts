@@ -2,6 +2,8 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { frameFailure, type FrameError } from '@/background/frame-failures';
+import { isContentMessage } from '@/core/messages';
 import { GROW_DELAY_MS, GROW_MS, HOLD_MS, LinkLongPress } from '@/features/link-preview/long-press';
 import { PREVIEW_OPEN_ATTRIBUTE, PreviewDialog } from '@/features/link-preview/preview-dialog';
 import { previewableLink, refusesFraming } from '@/site/links';
@@ -341,5 +343,95 @@ describe('the preview', () => {
     preview.dialog.dispatchEvent(new Event('cancel', { cancelable: true }));
 
     expect(preview.isOpen).toBe(false);
+  });
+});
+
+describe('pages that cannot be shown', () => {
+  const error = (overrides: Partial<FrameError> = {}): FrameError => ({
+    tabId: 4,
+    frameId: 7,
+    parentFrameId: 0,
+    error: 'net::ERR_BLOCKED_BY_RESPONSE',
+    url: 'https://example.com/',
+    ...overrides,
+  });
+
+  it('are reported for frames placed directly in a dev-null.sh page', () => {
+    expect(frameFailure(error(), 'https://dev-null.sh/log/latest')).toEqual({
+      type: 'dnpp:frame-failed',
+      url: 'https://example.com/',
+      reason: 'refused',
+    });
+    expect(frameFailure(error({ error: 'net::ERR_NAME_NOT_RESOLVED' }), 'https://dev-null.sh/')?.reason).toBe('failed');
+  });
+
+  it('are not reported anywhere else, or when we left the page ourselves', () => {
+    expect(frameFailure(error(), 'https://example.org/')).toBeNull();
+    expect(frameFailure(error(), undefined)).toBeNull();
+    expect(frameFailure(error({ frameId: 0 }), 'https://dev-null.sh/')).toBeNull();
+    expect(frameFailure(error({ parentFrameId: 3 }), 'https://dev-null.sh/')).toBeNull();
+    expect(frameFailure(error({ error: 'net::ERR_ABORTED' }), 'https://dev-null.sh/')).toBeNull();
+    expect(frameFailure(error({ url: 'http://example.com/' }), 'https://dev-null.sh/')).toBeNull();
+    expect(frameFailure(error({ url: `https://example.com/${'a'.repeat(3000)}` }), 'https://dev-null.sh/')).toBeNull();
+  });
+
+  it('reach the content script only in exactly that shape', () => {
+    const message = { type: 'dnpp:frame-failed', url: 'https://example.com/', reason: 'refused' };
+
+    expect(isContentMessage(message)).toBe(true);
+    expect(isContentMessage({ type: 'dnpp:open-settings' })).toBe(true);
+    expect(isContentMessage({ ...message, reason: 'other' })).toBe(false);
+    expect(isContentMessage({ ...message, url: 'javascript:alert(1)' })).toBe(false);
+    expect(isContentMessage({ ...message, extra: 1 })).toBe(false);
+    expect(isContentMessage({ type: 'dnpp:open-settings', url: 'https://example.com/' })).toBe(false);
+  });
+
+  describe('in the preview', () => {
+    let preview: PreviewDialog;
+
+    beforeEach(() => {
+      vi.spyOn(window, 'matchMedia').mockReturnValue({ matches: true } as MediaQueryList);
+      preview = new PreviewDialog();
+      preview.open(new URL('https://my-project.dev/demo'), { x: 0, y: 0 });
+    });
+
+    afterEach(() => {
+      preview.destroy();
+      document.body.innerHTML = '';
+    });
+
+    const notice = (): HTMLElement | null => preview.dialog.querySelector('.notice');
+
+    it('replace the browser’s error page with a plain notice', () => {
+      preview.showFailure('https://my-project.dev/demo', 'refused');
+
+      expect(notice()?.hidden).toBe(false);
+      expect(notice()?.textContent).toContain('This site can’t be opened here');
+      expect(notice()?.querySelector('a')?.href).toBe('https://my-project.dev/demo');
+      expect(preview.dialog.querySelector('iframe')).toBeNull();
+      expect(preview.dialog.hasAttribute('data-failed')).toBe(true);
+    });
+
+    it('count after a redirect to the same site', () => {
+      preview.showFailure('https://www.my-project.dev/en/demo', 'failed');
+
+      expect(notice()?.textContent).toContain('This page couldn’t be loaded');
+    });
+
+    it('of other frames on the page are ignored', () => {
+      preview.showFailure('https://ads.example.com/', 'refused');
+
+      expect(notice()?.hidden).toBe(true);
+      expect(preview.dialog.querySelector('iframe')).not.toBeNull();
+    });
+
+    it('are cleared by trying again', () => {
+      preview.showFailure('https://my-project.dev/demo', 'refused');
+      preview.dialog.querySelector<HTMLButtonElement>('button[aria-label="Reload"]')?.click();
+
+      expect(notice()?.hidden).toBe(true);
+      expect(preview.dialog.hasAttribute('data-failed')).toBe(false);
+      expect(preview.dialog.querySelector('iframe')).not.toBeNull();
+    });
   });
 });

@@ -25,7 +25,7 @@ The extension has three parts, trusted in this order:
 
 **Permissions**
 
-- Ask for the least: `scripting`, `storage` and `https://dev-null.sh/*`. Access to Groq's API is optional and
+- Ask for the least: `scripting`, `storage`, `webNavigation` and `https://dev-null.sh/*`. Access to Groq's API is optional and
   only requested, with your click, when you choose Groq, because it is the one provider that does not answer browser
   CORS. It is given back when you disconnect. The e2e suite fails if any of this grows, so adding to it is deliberate.
 - Content scripts run on dev-null.sh only, top frame only, and check that again at start-up.
@@ -76,8 +76,13 @@ The extension has three parts, trusted in this order:
   sees nothing.
 - The frame is sandboxed without top navigation, modals or downloads, sends no referrer and is granted no powerful
   features (`allow=""`). The page is a different origin from dev-null.sh, so it cannot reach the log behind it.
-- Previews never widen permissions, and a site's refusal to be framed is respected: sites known to refuse are not
-  offered a preview at all (`FRAME_REFUSING_SITES` in `src/site/links.ts`).
+- A site's refusal to be framed is respected, never removed. Sites known to refuse are not offered a preview at all
+  (`FRAME_REFUSING_SITES` in `src/site/links.ts`). Any other refusal is reported by `webNavigation` and shown as a
+  plain notice with a link to open the page in a new tab.
+- `webNavigation` is only acted on for errors in frames placed directly in a dev-null.sh page
+  (`src/background/frame-failures.ts`). Events from every other site are dropped without being stored or sent
+  anywhere. The tab is told only the failed page's address and why, and only shows a notice if that is the page its
+  preview is showing.
 
 **Features**
 

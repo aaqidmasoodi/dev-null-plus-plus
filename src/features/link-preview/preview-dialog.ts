@@ -18,6 +18,13 @@ const ICONS = {
   ],
   check: ['M20 6 9 17l-5-5'],
   external: ['M15 3h6v6', 'M10 14 21 3', 'M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6'],
+  // Lucide's `app-window` with a slash: a window that will not open here.
+  blocked: [
+    'M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z',
+    'M2 9h20',
+    'm9 13 6 5',
+    'm15 13-6 5',
+  ],
 } as const;
 
 /** Widths for checking how a page responds. `null` fills the dialog. */
@@ -34,6 +41,9 @@ const MIN_SIZE = 280;
 const GROW_FROM = 0.08;
 /** The small pop as a completed hold settles into place. */
 const SETTLE_MS = 220;
+/** How long after loading a page is shown: time for a refusal to be reported first. */
+const REVEAL_DELAY_MS = 150;
+const REVEAL_AT_MOST_MS = 1_500;
 
 /**
  * The frame's sandbox. Pages can run, keep their own origin (so they work), submit forms and open real windows. They
@@ -44,6 +54,24 @@ const SANDBOX = 'allow-scripts allow-same-origin allow-forms allow-popups allow-
 
 function prefersReducedMotion(): boolean {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+/**
+ * Whether a failed address is the previewed page: the same address, or the same site once redirects such as
+ * `example.com` to `www.example.com` are allowed for.
+ */
+function isSamePage(failedUrl: string, previewed: URL): boolean {
+  let failed: URL;
+
+  try {
+    failed = new URL(failedUrl);
+  } catch {
+    return false;
+  }
+
+  const site = (url: URL): string => url.hostname.replace(/^www\./, '');
+
+  return failed.href === previewed.href || site(failed) === site(previewed);
 }
 
 function iconButton(label: string, icon: readonly string[]): HTMLButtonElement {
@@ -73,6 +101,10 @@ export class PreviewDialog {
   readonly #openLink: HTMLAnchorElement;
   readonly #copy: HTMLButtonElement;
   readonly #sizeBadge: HTMLElement;
+  readonly #notice: HTMLElement;
+  readonly #noticeTitle: HTMLElement;
+  readonly #noticeText: HTMLElement;
+  readonly #noticeLink: HTMLAnchorElement;
   readonly #sizeButtons = new Map<SizeLabel, HTMLButtonElement>();
   #frame: HTMLIFrameElement | null = null;
   #url: URL | null = null;
@@ -129,7 +161,19 @@ export class PreviewDialog {
       el('div', { className: 'handle se', attrs: { 'data-edge': 'se' } }),
     ]);
     this.#sizeBadge = el('div', { className: 'size', attrs: { 'aria-hidden': 'true' } });
-    this.#stage = el('div', { className: 'stage' }, [this.#viewport, this.#sizeBadge]);
+    this.#noticeTitle = el('strong');
+    this.#noticeText = el('span');
+    this.#noticeLink = el('a', { attrs: { target: '_blank', rel: 'noopener noreferrer' } }, [
+      createSvgIcon(ICONS.external, ''),
+      'Open in new tab',
+    ]);
+    this.#notice = el('div', { className: 'notice', attrs: { role: 'status', hidden: '' } }, [
+      createSvgIcon(ICONS.blocked, ''),
+      this.#noticeTitle,
+      this.#noticeText,
+      this.#noticeLink,
+    ]);
+    this.#stage = el('div', { className: 'stage' }, [this.#viewport, this.#notice, this.#sizeBadge]);
 
     this.#dialog = el('dialog', { attrs: { 'aria-label': 'Link preview', 'data-test': 'dnpp-link-preview' } }, [
       el('div', { className: 'bar' }, [
@@ -183,6 +227,28 @@ export class PreviewDialog {
   /** The dialog, for tests. */
   get dialog(): HTMLDialogElement {
     return this.#dialog;
+  }
+
+  /**
+   * A page at `failedUrl` could not be shown in a frame: it refuses to be framed, or did not load. If it is the page
+   * this preview is showing, the browser's grey error page is replaced by a plain notice offering to open it in a new
+   * tab, and the width controls, which no longer mean anything, go. Failures of any other frame are ignored.
+   */
+  showFailure(failedUrl: string, reason: 'refused' | 'failed'): void {
+    if (this.#phase !== 'open' || this.#frame === null || this.#url === null || !isSamePage(failedUrl, this.#url)) {
+      return;
+    }
+
+    this.#teardownFrame();
+    this.#setSize('Desktop');
+    this.#dialog.setAttribute('data-failed', '');
+    this.#noticeTitle.textContent =
+      reason === 'refused' ? 'This site can’t be opened here' : 'This page couldn’t be loaded';
+    this.#noticeText.textContent =
+      reason === 'refused'
+        ? 'It doesn’t allow being shown inside other sites. You can still open it in a new tab.'
+        : 'Check the link, or try opening it in a new tab.';
+    this.#notice.hidden = false;
   }
 
   /**
@@ -351,6 +417,7 @@ export class PreviewDialog {
     this.#hostName.textContent = url.host;
     this.#path.textContent = `${url.pathname}${url.search}`.replace(/^\/$/, '');
     this.#openLink.href = url.href;
+    this.#noticeLink.href = url.href;
     this.#setSize('Desktop');
 
     this.prepare();
@@ -378,8 +445,14 @@ export class PreviewDialog {
     }
 
     this.#teardownFrame();
+    this.#clearFailure();
     this.#dialog.removeAttribute('data-growing');
     this.#phase = 'closed';
+  }
+
+  #clearFailure(): void {
+    this.#dialog.removeAttribute('data-failed');
+    this.#notice.hidden = true;
   }
 
   #stopGrowth(): void {
@@ -400,6 +473,7 @@ export class PreviewDialog {
     }
 
     this.#teardownFrame();
+    this.#clearFailure();
 
     const frame = el('iframe', {
       attrs: {
@@ -413,6 +487,21 @@ export class PreviewDialog {
 
     // This must be in place before the frame starts loading.
     frame.setAttribute('credentialless', '');
+    // Shown only a moment after it loads, so a page that refuses is replaced by our notice before the browser's grey
+    // error page is ever seen. A slow page is shown anyway after a while, to fill in as it loads.
+    const reveal = (): void => {
+      frame.removeAttribute('data-loading');
+    };
+
+    frame.setAttribute('data-loading', '');
+    frame.addEventListener(
+      'load',
+      () => {
+        window.setTimeout(reveal, REVEAL_DELAY_MS);
+      },
+      { once: true },
+    );
+    window.setTimeout(reveal, REVEAL_AT_MOST_MS);
     frame.src = url.href;
     this.#viewport.append(frame);
     this.#frame = frame;
