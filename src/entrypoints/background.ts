@@ -1,4 +1,4 @@
-import { SITE_MATCHES, SITE_ORIGIN } from '@/core/constants';
+import { isSiteUrl, SITE_MATCHES, SITE_ORIGIN } from '@/core/constants';
 import { createLogger } from '@/core/logger';
 import type { ContentMessage } from '@/core/messages';
 import { SETTINGS_HASH } from '@/core/route';
@@ -10,10 +10,6 @@ const CONTENT_SCRIPTS = {
   hydrationProbe: '/content-scripts/hydration-probe.js',
   main: '/content-scripts/devnull.js',
 } as const;
-
-function isSiteUrl(url: string | undefined): boolean {
-  return url !== undefined && new URL(url).origin === SITE_ORIGIN;
-}
 
 /**
  * Chrome only runs manifest content scripts on pages loaded after the extension is installed. Inject into dev-null.sh

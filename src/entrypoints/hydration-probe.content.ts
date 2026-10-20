@@ -1,4 +1,10 @@
-import { HYDRATION_ATTRIBUTE, HYDRATION_PROBE_TIMEOUT_MS, SITE_MATCHES, type HydrationState } from '@/core/constants';
+import {
+  HYDRATION_ATTRIBUTE,
+  HYDRATION_PROBE_TIMEOUT_MS,
+  isTopLevelSitePage,
+  SITE_MATCHES,
+  type HydrationState,
+} from '@/core/constants';
 import { readRootHydration } from '@/core/react-hydration';
 import { SELECTORS } from '@/site/selectors';
 
@@ -16,6 +22,10 @@ export default defineContentScript({
   world: 'MAIN',
   runAt: 'document_idle',
   main() {
+    if (!isTopLevelSitePage()) {
+      return;
+    }
+
     const root = document.documentElement;
 
     if (root.hasAttribute(HYDRATION_ATTRIBUTE)) {

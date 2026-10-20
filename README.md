@@ -81,6 +81,11 @@ A few rules keep this working while dev-null.sh deploys many times a day.
 - **Clean up.** Everything the extension adds carries a `data-dnpp` attribute. On update the old copy removes its
   nodes and the new one removes any it left behind.
 
+## Security
+
+The extension is built security-first. [SECURITY.md](SECURITY.md) has the threat model and the rules every feature
+follows.
+
 ## Permissions
 
 - `https://dev-null.sh/*`: to run on dev-null.sh, and nowhere else.
