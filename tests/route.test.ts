@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { isSettingsRoute, onRouteChange, openSettingsRoute, SETTINGS_HASH } from '@/core/route';
+import { isSettingsRoute, onRouteChange, openSettingsRoute, SETTINGS_HASH, settingsHref } from '@/core/route';
 
 describe('settings route', () => {
   afterEach(() => {
@@ -18,7 +18,7 @@ describe('settings route', () => {
   it('opens by moving to its fragment on the current page', () => {
     history.replaceState(null, '', '/log/latest');
 
-    openSettingsRoute();
+    openSettingsRoute(null);
 
     expect(location.pathname).toBe('/log/latest');
     expect(location.hash).toBe(SETTINGS_HASH);
@@ -27,9 +27,14 @@ describe('settings route', () => {
   it('leaves the URL alone when already open on a sub-page', () => {
     history.replaceState(null, '', `/log/latest${SETTINGS_HASH}/ai`);
 
-    openSettingsRoute();
+    openSettingsRoute(null);
 
     expect(location.hash).toBe(`${SETTINGS_HASH}/ai`);
+  });
+
+  it('links in place, or to another page when this one cannot host it', () => {
+    expect(settingsHref(null)).toBe(SETTINGS_HASH);
+    expect(settingsHref('/log/latest')).toBe(`/log/latest${SETTINGS_HASH}`);
   });
 
   it('reports fragment changes, Back and Forward, and Inertia visits until aborted', () => {

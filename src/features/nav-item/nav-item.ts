@@ -106,8 +106,10 @@ export function buildNavItem(classes: ItemClasses, href: string): HTMLAnchorElem
 }
 
 export interface NavItemOptions {
-  /** Where the item links to, the settings page's fragment. */
+  /** Where the item links to at first. See {@link NavItem.setHref}. */
   href: string;
+  /** Called on every click before the browser follows the link. Call `preventDefault()` to handle it instead. */
+  onClick?: (event: MouseEvent) => void;
 }
 
 /**
@@ -117,18 +119,20 @@ export interface NavItemOptions {
  * every DOM change and puts the item back where it belongs if it went missing, moved, or ended up in a fresh nav. It
  * is idempotent and returns early in the common case where nothing changed.
  *
- * It is a plain link to a URL fragment, so the browser handles the click, including opening it in a new tab.
+ * It is a plain link, so the browser handles the click, including opening it in a new tab, unless `onClick` takes it.
  */
 export class NavItem {
-  readonly #href: string;
+  #href: string;
+  readonly #onClick: ((event: MouseEvent) => void) | undefined;
   #element: HTMLAnchorElement | null = null;
   #classes: ItemClasses | null = null;
   #nav: HTMLElement | null = null;
   #anchor: HTMLAnchorElement | null = null;
   #active = false;
 
-  constructor({ href }: NavItemOptions) {
+  constructor({ href, onClick }: NavItemOptions) {
     this.#href = href;
+    this.#onClick = onClick;
   }
 
   get element(): HTMLAnchorElement | null {
@@ -155,6 +159,13 @@ export class NavItem {
       this.#element?.remove();
       this.#classes = readItemClasses(findLinkTemplate(nav), findActiveLink(nav));
       this.#element = buildNavItem(this.#classes, this.#href);
+
+      const onClick = this.#onClick;
+
+      if (onClick !== undefined) {
+        this.#element.addEventListener('click', onClick);
+      }
+
       this.#applyActive();
     }
 
@@ -172,6 +183,16 @@ export class NavItem {
   }
 
   /** Highlights the item as the current page, the way the site highlights its own. */
+  /** Points the item somewhere else: the settings fragment on this page, or on another page when this one can't host it. */
+  setHref(href: string): void {
+    if (href === this.#href) {
+      return;
+    }
+
+    this.#href = href;
+    this.#element?.setAttribute('href', href);
+  }
+
   setActive(active: boolean): void {
     if (active === this.#active) {
       return;

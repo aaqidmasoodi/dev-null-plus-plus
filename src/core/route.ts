@@ -17,11 +17,38 @@ export function isSettingsRoute(hash: string = location.hash): boolean {
   return hash === SETTINGS_HASH || hash.startsWith(`${SETTINGS_HASH}/`);
 }
 
-/** Opens the settings page by moving to its fragment, which adds a history entry so Back closes it again. */
-export function openSettingsRoute(): void {
+/**
+ * Where a link to the settings page should point from the current page.
+ *
+ * @param elsewhere A same-origin path to open it on instead, when the current page cannot host it. `null` opens it in
+ * place, on the current page.
+ */
+export function settingsHref(elsewhere: string | null): string {
+  return elsewhere === null ? SETTINGS_HASH : `${elsewhere}${SETTINGS_HASH}`;
+}
+
+/**
+ * Opens the settings page. In place it only moves to the fragment, which adds a history entry so Back closes it again.
+ * Elsewhere it is an ordinary page load.
+ */
+export function openSettingsRoute(elsewhere: string | null): void {
+  if (elsewhere !== null) {
+    location.assign(settingsHref(elsewhere));
+
+    return;
+  }
+
   if (!isSettingsRoute()) {
     location.hash = SETTINGS_HASH;
   }
+}
+
+/**
+ * Moves an open settings page from a page that cannot host it to `path`, keeping any sub-page. It replaces the
+ * current history entry, so Back does not land on the page that bounced it.
+ */
+export function moveSettingsRoute(path: string): void {
+  location.replace(`${path}${location.hash}`);
 }
 
 /**

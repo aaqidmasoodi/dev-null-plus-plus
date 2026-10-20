@@ -37,6 +37,18 @@ describe('NavItem', () => {
     expect(item.element?.getAttribute('href')).toBe(SETTINGS_HASH);
   });
 
+  it('can be pointed elsewhere, before or after it is placed', () => {
+    renderSite();
+    const item = createItem();
+
+    item.setHref(`/log/latest${SETTINGS_HASH}`);
+    item.ensure();
+    expect(item.element?.getAttribute('href')).toBe(`/log/latest${SETTINGS_HASH}`);
+
+    item.setHref(SETTINGS_HASH);
+    expect(item.element?.getAttribute('href')).toBe(SETTINGS_HASH);
+  });
+
   it('finds Settings by its label when signed out, where every link points to sign-in', () => {
     renderSite({ signedIn: false });
     const item = createItem();
