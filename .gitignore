@@ -1,0 +1,10 @@
+node_modules
+.output
+.wxt
+web-ext.config.ts
+playwright-report
+test-results
+*.log
+.DS_Store
+.env*
+!.env.example
