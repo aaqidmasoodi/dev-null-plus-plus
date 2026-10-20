@@ -2,8 +2,11 @@ import js from '@eslint/js';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
-/** Background-only code. It is the only place allowed to make network requests. See SECURITY.md. */
-const BACKGROUND_FILES = ['src/entrypoints/background.ts', 'src/background/**'];
+/**
+ * Code that runs in the extension's own origin: the background and the key-entry page. Only it may hold secrets, open
+ * the vault and make network requests. Everything else runs in dev-null.sh's page and may not. See SECURITY.md.
+ */
+const EXTENSION_ORIGIN_FILES = ['src/entrypoints/background.ts', 'src/background/**', 'src/entrypoints/vault/**'];
 
 const HTML_SINKS = [
   'innerHTML',
@@ -58,18 +61,12 @@ export default tseslint.config(
           message: 'Do not open message channels with the page. Use runtime messaging with verified senders.',
         },
       ],
-      'no-restricted-globals': [
-        'error',
-        ...['localStorage', 'sessionStorage', 'indexedDB'].map((name) => ({
-          name,
-          message: 'The page can read its own storage. Use browser.storage instead.',
-        })),
-      ],
     },
   },
   {
+    // Page-side code: content scripts and everything they import.
     files: ['src/**/*.ts'],
-    ignores: BACKGROUND_FILES,
+    ignores: EXTENSION_ORIGIN_FILES,
     rules: {
       'no-restricted-globals': [
         'error',
@@ -81,6 +78,17 @@ export default tseslint.config(
           name,
           message: 'Network requests only happen in the background, which holds the secrets. Send it a message.',
         })),
+      ],
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@/background/*', '**/background/*'],
+              message: 'Page-side code must not import background code, which handles secrets. Send a message instead.',
+            },
+          ],
+        },
       ],
     },
   },

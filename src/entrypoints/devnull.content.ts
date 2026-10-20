@@ -2,7 +2,12 @@ import { HYDRATION_WAIT_TIMEOUT_MS, isTopLevelSitePage, SITE_MATCHES } from '@/c
 import { observeAttributes, observeDom } from '@/core/dom';
 import { waitForHydration } from '@/core/hydration';
 import { createLogger } from '@/core/logger';
-import { isContentMessage, isFromOwnBackground } from '@/core/messages';
+import { parseRewriteResult } from '@/core/ai';
+import { isContentMessage, isFromOwnBackground, type RewriteMessage } from '@/core/messages';
+import { writeSettings, type SettingsStore } from '@/core/settings';
+import { ComposerAi } from '@/features/ai-rewrite/composer-ai';
+import { aiSection } from '@/features/ai-rewrite/settings-section';
+import { loadExtensionState, type ExtensionState } from '@/features/ai-rewrite/state';
 import {
   isSettingsRoute,
   moveSettingsRoute,
@@ -68,12 +73,49 @@ export default defineContentScript({
         }
       },
     });
+    let store: SettingsStore<ExtensionState>;
+
+    try {
+      store = await loadExtensionState(ctx.signal);
+    } catch (error) {
+      logger.error('Could not read settings.', error);
+
+      return;
+    }
+
     const settingsPage = new SettingsPage({
-      sections: [aboutSection(browser.runtime.getManifest().version)],
+      sections: [
+        aboutSection(browser.runtime.getManifest().version),
+        aiSection({
+          store,
+          saveSettings: writeSettings,
+          frameUrl: browser.runtime.getURL('/vault.html'),
+          signal: ctx.signal,
+        }),
+      ],
     });
+    const composerAi = new ComposerAi({
+      store,
+      request: async (request) =>
+        // The reply is checked, not trusted: anything malformed counts as a failed rewrite.
+        parseRewriteResult(
+          await browser.runtime.sendMessage({ type: 'dnpp:ai-rewrite', ...request } satisfies RewriteMessage),
+        ),
+    });
+
+    /** Keeps the composer's AI button in place. Separate from `sync`, so a failure here never touches navigation. */
+    const syncComposer = (): void => {
+      try {
+        composerAi.ensure();
+      } catch (error) {
+        logger.error('Could not update the composer.', error);
+      }
+    };
 
     /** Brings everything in line with the URL and the DOM. Runs on every change of either, so it must stay cheap. */
     const sync = (): void => {
+      syncComposer();
+
       try {
         settingsNavigator.settle();
 
@@ -98,6 +140,9 @@ export default defineContentScript({
 
     sync();
     observeDom(sync, ctx.signal);
+    store.subscribe(() => {
+      syncComposer();
+    }, ctx.signal);
     observeAttributes(document.documentElement, LAYOUT_ATTRIBUTES, sync, ctx.signal);
     onRouteChange(sync, ctx.signal);
 
@@ -115,6 +160,7 @@ export default defineContentScript({
       browser.runtime.onMessage.removeListener(onMessage);
       navItem.destroy();
       settingsPage.destroy();
+      composerAi.destroy();
       removeTakeover();
     });
 

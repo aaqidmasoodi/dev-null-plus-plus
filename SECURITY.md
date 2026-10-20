@@ -13,8 +13,8 @@ public issue.
 
 The extension has three parts, trusted in this order:
 
-1. **The background service worker.** Trusted. It is the only part that holds secrets, such as API keys, and the only
-   part that makes network requests.
+1. **The extension's own origin**: the background service worker and the key-entry page. Trusted. It is the only part
+   that holds secrets, such as API keys, and the only part that makes network requests.
 2. **The content scripts** on dev-null.sh. Partly trusted. They share the page's process, so a compromised page could
    reach them. They never hold secrets.
 3. **The page itself**: dev-null.sh's DOM, its scripts, its storage, and the main-world probe. Untrusted. Anything read
@@ -25,10 +25,12 @@ The extension has three parts, trusted in this order:
 
 **Permissions**
 
-- Ask for the least. Today that is `scripting` and `https://dev-null.sh/*`, nothing else. The e2e suite fails if the
-  list grows, so adding one is a deliberate change.
+- Ask for the least: `scripting`, `storage` and `https://dev-null.sh/*`. Access to Groq's API is optional and
+  only requested, with your click, when you choose Groq, because it is the one provider that does not answer browser
+  CORS. It is given back when you disconnect. The e2e suite fails if any of this grows, so adding to it is deliberate.
 - Content scripts run on dev-null.sh only, top frame only, and check that again at start-up.
-- No `web_accessible_resources`, and `externally_connectable` admits no other extension and no web page.
+- The only page exposed to the web is the key-entry page (`vault.html`), only to dev-null.sh, behind a per-session URL
+  so other sites cannot detect the extension. `externally_connectable` admits no other extension and no web page.
 
 **Code and markup**
 
@@ -36,8 +38,8 @@ The extension has three parts, trusted in this order:
   lint. Build nodes with `createElement` and set text with `textContent`.
 - No `eval` or `new Function`. The extension CSP forbids them and lint bans them.
 - The extension's own pages run under a deny-everything CSP with Trusted Types (`EXTENSION_PAGES_CSP` in
-  `src/core/constants.ts`). Network access is `connect-src 'none'` until a feature needs an API, and then only that
-  API's exact origin is added.
+  `src/core/constants.ts`). Network access is limited to the AI providers' exact API origins, and only dev-null.sh may
+  frame our pages.
 
 **Messages**
 
@@ -48,12 +50,22 @@ The extension has three parts, trusted in this order:
 
 **Secrets and data**
 
-- API keys live in `browser.storage.local`. Only the background reads them, and it never sends them to a content
-  script. They are never put in the DOM, in page storage (`localStorage` and friends are banned), in URLs or in logs.
-- Content scripts never make network requests themselves. They ask the background, which makes the request. Lint
-  enforces this.
-- Anything that has to show a secret, such as a field to paste a key into, is an extension page in an isolated frame,
-  never an element on dev-null.sh. Page scripts can read any shadow root on the page.
+- API keys live in the vault: IndexedDB in the extension's own origin (`src/background/vault.ts`). Only the background
+  and the key-entry page can open it. dev-null.sh cannot, and neither can our content scripts, which share the page's
+  origin. That is a stronger boundary than `browser.storage`, which content scripts can read.
+- Content scripts only ever see which provider and model are connected, mirrored to `browser.storage.local`. Never the
+  key. It is never put in the DOM, in page storage (`localStorage` and friends are banned), in URLs or in logs.
+- Content scripts never make network requests and never import background code. They ask the background, which reads
+  the key and makes the request. Lint enforces both.
+- The key is typed into the key-entry page, an extension page framed into the settings page, never into an element on
+  dev-null.sh. The site's scripts cannot read a cross-origin frame; they could read any shadow root on the page.
+- Requests to providers omit credentials, refuse redirects and time out after 30 seconds. Rewrites are rate-limited in
+  the background, so nothing on the page can run up your bill. Provider errors become fixed codes and never carry the
+  key or the provider's raw reply.
+- The model must answer in a fixed JSON shape (structured output where the provider supports it), and anything else
+  is discarded, so no commentary or stray text from the model ever reaches the composer. Only the rewrite itself goes
+  in, as plain text, through the same path as typing, and is never submitted for you. Every message the panel shows is
+  the extension's own. Your draft is fenced in the prompt so text in it cannot pose as instructions.
 - The logger redacts anything shaped like an API key or bearer token, and drops stacks.
 - Only what a feature needs leaves the browser, only to the provider you configured, and only when you act.
 
@@ -63,6 +75,6 @@ The extension has three parts, trusted in this order:
 
 **Supply chain**
 
-- No runtime dependencies beyond WXT's browser shim. Development dependencies are locked, audited in CI and kept current
-  by Dependabot.
+- Runtime dependencies are kept to WXT's browser shim, Anthropic's official SDK (used only in the extension's origin, to
+  call Anthropic) and the Geist font files. Everything is locked, audited in CI and kept current by Dependabot.
 - CI actions are pinned to commit SHAs and check out without stored credentials. CodeQL scans every change.

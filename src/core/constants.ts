@@ -5,22 +5,47 @@ export const SITE_HOST_PERMISSION = `${SITE_ORIGIN}/*`;
 export const SITE_MATCHES = [SITE_HOST_PERMISSION];
 
 /**
+ * The AI providers' API origins, the only places the extension ever connects to. Must match `PROVIDERS` in
+ * `src/background/providers.ts`; a unit test keeps them in step.
+ */
+export const AI_PROVIDER_ORIGINS = [
+  'https://api.groq.com',
+  'https://api.openai.com',
+  'https://api.anthropic.com',
+  'https://api.x.ai',
+  'https://generativelanguage.googleapis.com',
+] as const;
+
+/**
+ * Providers whose APIs do not answer CORS for extensions, so the user grants access to them when they choose one.
+ * Optional, never requested at install.
+ */
+export const OPTIONAL_HOST_PERMISSIONS = ['https://api.groq.com/*'];
+
+/** The extension page that holds the key-entry form, framed into the settings page. */
+export const VAULT_PAGE = 'vault.html';
+
+/**
  * Content Security Policy for the extension's own pages and its service worker. Deny everything, then allow only our
- * own bundled scripts, styles and images. No network access at all: when a feature needs to call an API, its exact
- * origin gets added to `connect-src`, and nothing else. Trusted Types make any HTML-string sink throw.
+ * own bundled scripts, styles and images. Network access is limited to the AI providers' API origins, and nothing
+ * else. Only dev-null.sh may frame our pages, and only the key-entry page is exposed to it at all. Trusted Types make
+ * any HTML-string sink throw.
  */
 export function extensionPagesCsp({ devServer }: { devServer?: string } = {}): string {
+  // `npm run dev` reloads the extension over a websocket to the local dev server. Production builds allow nothing more.
+  const dev = devServer === undefined ? [] : [devServer, devServer.replace(/^http/, 'ws')];
+
   return [
     "default-src 'none'",
     "script-src 'self'",
     "style-src 'self'",
     "img-src 'self'",
-    // `npm run dev` reloads the extension over a websocket to the local dev server. Production builds allow nothing.
-    devServer === undefined ? "connect-src 'none'" : `connect-src ${devServer} ${devServer.replace(/^http/, 'ws')}`,
+    "font-src 'self'",
+    `connect-src ${[...AI_PROVIDER_ORIGINS, ...dev].join(' ')}`,
     "object-src 'none'",
     "base-uri 'none'",
     "form-action 'none'",
-    "frame-ancestors 'none'",
+    `frame-ancestors ${SITE_ORIGIN}`,
     "require-trusted-types-for 'script'",
     "trusted-types 'none'",
   ].join('; ');

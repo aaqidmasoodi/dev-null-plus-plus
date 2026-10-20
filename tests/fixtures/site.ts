@@ -108,3 +108,40 @@ export function remountNav(options: NavOptions = {}): HTMLElement {
 
   return nav;
 }
+
+/**
+ * A commit composer and a reply composer, trimmed from components/commit-composer.tsx and components/commit-thread.tsx
+ * and checked against the live site on 2026-10-20: the textarea, and the toolbar with the image button and, for
+ * commits, the schedule toggle.
+ *
+ * The live site wraps each toolbar button in `<span class="inline-flex shrink-0">` for its tooltip, which the source
+ * does not show. `wrapped: false` renders the buttons bare, as the source does, so both shapes stay covered.
+ */
+export function composersHtml({ wrapped = true }: { wrapped?: boolean } = {}): string {
+  const wrap = (button: string): string => (wrapped ? `<span class="inline-flex shrink-0">${button}</span>` : button);
+
+  return `
+    <form data-test="commit-composer">
+      <div class="grid"><textarea id="body" name="body" maxlength="4500"></textarea></div>
+      <div class="mt-2 flex flex-wrap items-center justify-end">
+        <div class="flex min-w-0 flex-1 items-center gap-x-1">
+          <input type="file" hidden data-test="commit-image-input" />
+          ${wrap('<button type="button" class="inline-flex size-9 text-muted-foreground -ml-2" aria-label="Attach images" data-test="attach-images-button"><svg class="lucide lucide-image-plus size-5"></svg></button>')}
+          ${wrap('<button type="button" class="inline-flex size-9 text-muted-foreground" aria-label="Add poll" data-test="add-poll-button"><svg class="size-5"></svg></button>')}
+          ${wrap('<button type="button" class="inline-flex size-9 text-muted-foreground aria-expanded:bg-primary-soft aria-expanded:text-primary" aria-label="Schedule" aria-expanded="false" data-test="schedule-toggle"><svg class="lucide lucide-clock-3 size-5"></svg></button>')}
+          ${wrap('<button type="button" class="inline-flex size-9 text-muted-foreground" aria-label="Preview" data-test="preview-toggle"><svg class="size-5"></svg></button>')}
+        </div>
+        <button type="submit" data-test="create-commit-button">Commit</button>
+      </div>
+    </form>
+    <form data-test="reply-composer">
+      <div class="grid"><textarea id="reply-1" name="body" maxlength="4500"></textarea></div>
+      <div class="mt-1.5 flex flex-wrap items-center justify-end">
+        <div class="mr-auto flex min-w-0 items-center gap-2">
+          <input type="file" hidden data-test="commit-image-input" />
+          ${wrap('<button type="button" class="inline-flex size-9 text-muted-foreground size-8" aria-label="Attach images" data-test="attach-images-button"><svg class="lucide lucide-image-plus size-5"></svg></button>')}
+        </div>
+        <button type="submit" data-test="submit-reply-button">Reply</button>
+      </div>
+    </form>`;
+}

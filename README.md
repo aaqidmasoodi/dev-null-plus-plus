@@ -6,6 +6,14 @@ Install it and that is it. dev/null++ adds **/dev/null++** to the site's left na
 It opens a settings page inside dev-null.sh, at `#dev-null-plus-plus` on whatever page you are on. There is no popup
 and no options page. The toolbar icon opens the same page.
 
+## Features
+
+Every feature can be switched off on the settings page.
+
+- **Rewrite with AI.** Connect Groq, OpenAI, Anthropic, xAI or Google Gemini with your own API key, and the composer
+  gets an AI button next to its other tools. It opens a small panel to Improve, Shorten, Fix grammar, or make a draft
+  more Casual or Professional, with Undo. Your key stays in this browser and is only sent to the provider you chose.
+
 ## Install (development build)
 
 ```sh
@@ -46,16 +54,20 @@ The first e2e run needs a browser: `npx playwright install chromium`.
 ```
 src/
   entrypoints/
-    background.ts               Toolbar icon, and injecting into tabs already open on install or update
+    background.ts               Toolbar icon, injecting into open tabs, and handling rewrite requests
+    vault/                      The key-entry page, framed into the settings page
     devnull.content.ts          The content script: waits for hydration, then mounts the features
     hydration-probe.content.ts  Main-world script that reports when React has finished hydrating
-  core/                         Shared, site-agnostic pieces: constants, logger, DOM helpers, route, branding
+  background/                   Extension-origin only: the key vault, AI providers, the rewrite prompt
+  core/                         Shared, site-agnostic pieces: constants, logger, DOM helpers, route, settings, branding
   site/
     selectors.ts                Every assumption about dev-null.sh's markup, in one place
     takeover.ts                 Hides the site's page while ours shows
+    composer.ts                 Finding the composers and writing into them
   features/
     nav-item/                   The "/dev/null++" link in the left navigation
     settings-page/              The settings page it opens, built from sections
+    ai-rewrite/                 The composer's AI button and panel, and its settings section
 ```
 
 A few rules keep this working while dev-null.sh deploys many times a day.
@@ -90,6 +102,9 @@ follows.
 
 - `https://dev-null.sh/*`: to run on dev-null.sh, and nowhere else.
 - `scripting`: to start in tabs that were already open when the extension was installed or updated.
+- `storage`: to remember your settings and which AI provider is connected (never the key itself).
+- `https://api.groq.com/*`, optional: asked for only when you connect Groq, whose API does not otherwise allow
+  extensions to call it, and given back when you disconnect.
 
 ## Release
 
