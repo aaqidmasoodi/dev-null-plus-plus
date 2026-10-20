@@ -86,6 +86,12 @@ export class ProviderError extends Error {
 function errorForStatus(status: number, body: unknown): ProviderError {
   const text = JSON.stringify(body ?? '').toLowerCase();
 
+  // Groq answers a blocked network (VPNs, datacenters) with 403 "Access denied. Please check your network settings."
+  // before it looks at the key, so that must not read as a bad key.
+  if (status === 403 && /network settings|access denied/.test(text)) {
+    return new ProviderError('blocked');
+  }
+
   if (status === 401 || status === 403) {
     return new ProviderError('auth');
   }

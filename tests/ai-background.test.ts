@@ -63,6 +63,7 @@ describe('providers', () => {
     it.each([
       [401, {}, 'auth'],
       [403, {}, 'auth'],
+      [403, { error: { message: 'Access denied. Please check your network settings.' } }, 'blocked'],
       [429, { error: { message: 'Rate limit reached' } }, 'rate-limited'],
       [429, { error: { code: 'insufficient_quota' } }, 'quota'],
       [404, {}, 'model'],
