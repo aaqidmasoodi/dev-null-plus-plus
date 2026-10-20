@@ -40,6 +40,12 @@ dialog:not([open]) {
   display: none;
 }
 
+/* While it grows under a held pointer, it is only a picture of what is coming: nothing in it can be used yet. */
+dialog[data-growing] {
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
 dialog::backdrop {
   background: rgb(0 0 0 / 0.5);
   backdrop-filter: blur(2px);
@@ -245,74 +251,9 @@ iframe {
   opacity: 1;
 }
 
-/* Loading, and pages that cannot be shown here. */
-
-.loading,
-.notice {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  display: grid;
-  place-content: center;
-  justify-items: center;
-  gap: 0.75rem;
-  padding: 1.5rem;
-  background: var(--card, Canvas);
-  color: var(--muted-foreground, GrayText);
-  text-align: center;
-}
-
-.loading[hidden],
-.notice[hidden] {
-  display: none;
-}
-
-.spinner {
-  width: 1.25rem;
-  height: 1.25rem;
-  border: 2px solid currentColor;
-  border-right-color: transparent;
-  border-radius: 999px;
-  animation: spin 700ms linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(1turn);
-  }
-}
-
-.notice strong {
-  color: var(--foreground, CanvasText);
-  font-size: 0.9375rem;
-  font-weight: 600;
-}
-
-.notice a {
-  display: inline-flex;
-  height: 2.25rem;
-  align-items: center;
-  padding: 0 1rem;
-  border-radius: calc(var(--radius, 0.5rem) - 2px);
-  background: var(--primary, LinkText);
-  color: var(--primary-foreground, Canvas);
-  font-weight: 500;
-  text-decoration: none;
-}
-
-.hint {
-  font-size: 0.75rem;
-}
-
 @media (width < 40rem) {
   .sizes,
   .path {
     display: none;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .spinner {
-    animation-duration: 2s;
   }
 }

@@ -16,9 +16,10 @@ Every feature can be switched off on the settings page.
 - **Load new commits automatically.** When the log's "N new commits" pill appears, they load on their own, with a
   short animation, exactly as if you had clicked it. Only while you are at the top of the log: further down, nothing
   moves, and they load as soon as you scroll back up.
-- **Link preview.** Press and hold a link to open it in a large window over the log, with phone, tablet and desktop
-  widths and resizable edges. It opens like a private window: none of your cookies or logins. Some sites refuse to be
-  shown inside another page; those offer to open in a new tab. A normal click is unchanged.
+- **Link preview.** Press and hold a link to someone's project and it grows out of the link into a large window over
+  the log, with phone, tablet and desktop widths and resizable edges. Let go early and it shrinks back. It opens like a
+  private window: none of your cookies or logins. Sites known to refuse being shown inside another page, like GitHub
+  or X, stay plain links. A normal click is unchanged.
 
 ## Install (development build)
 

@@ -14,7 +14,7 @@ export function linkPreviewSection({ store, saveSettings, signal }: LinkPreviewS
     id: 'link-preview',
     title: 'Link preview',
     description:
-      'Press and hold a link to open it in a large window over your log, without leaving it. Pages open like a private window: they get none of your cookies or logins, and keep nothing once closed. A normal click still opens the link as usual.',
+      'Press and hold a link to someone’s project and it grows into a large window over your log, so you can look without leaving. Let go early and it shrinks back. Pages open like a private window: they get none of your cookies or logins, and keep nothing once closed. A normal click still opens the link as usual.',
     render: () => createFeatureToggle({ store, saveSettings, feature: 'linkPreview', label: 'Link preview', signal }),
   };
 }

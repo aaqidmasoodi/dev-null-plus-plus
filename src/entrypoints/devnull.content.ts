@@ -124,12 +124,18 @@ export default defineContentScript({
     // Press and hold an outside link to preview it. Read at each press, so switching it off takes effect at once.
     new LinkLongPress({
       enabled: () => store.value.settings.features.linkPreview && !preview.isOpen,
-      onOpen: (url, origin) => {
+      onGrow: (url, origin, duration) => {
         try {
-          preview.open(url, origin);
+          preview.grow(url, origin, duration);
         } catch (error) {
           logger.error('Could not open the preview.', error);
         }
+      },
+      onCancel: () => {
+        preview.cancel();
+      },
+      onCommit: () => {
+        preview.commit();
       },
       signal: ctx.signal,
     });

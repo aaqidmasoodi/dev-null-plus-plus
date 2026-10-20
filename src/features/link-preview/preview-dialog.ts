@@ -30,7 +30,8 @@ const SIZES = [
 type SizeLabel = (typeof SIZES)[number]['label'];
 
 const MIN_SIZE = 280;
-const SLOW_LOAD_MS = 8_000;
+/** How small the preview starts when a hold begins, as a fraction of its full size. */
+const GROW_FROM = 0.08;
 
 /**
  * The frame's sandbox. Pages can run, keep their own origin (so they work), submit forms and open real windows. They
@@ -49,8 +50,9 @@ function iconButton(label: string, icon: readonly string[]): HTMLButtonElement {
 
 /**
  * A large dialog showing a link's page over a dimmed dev-null.sh, so a page can be read without leaving the log. It
- * pops out from where the link was pressed, can be resized or set to phone and tablet widths, and closes with ✕,
- * Escape or a click outside.
+ * grows out of the link while it is held ({@link grow}), shrinks back if let go early ({@link cancel}) and settles
+ * into place once held long enough ({@link commit}). It can be resized or set to phone and tablet widths, and closes
+ * with ✕, Escape or a click outside.
  *
  * The page loads like a private window:
  * - `credentialless`: it gets none of the user's cookies or saved logins for that site, and starts with empty, throwaway
@@ -66,18 +68,16 @@ export class PreviewDialog {
   readonly #path: HTMLElement;
   readonly #stage: HTMLElement;
   readonly #viewport: HTMLElement;
-  readonly #loading: HTMLElement;
-  readonly #slowHint: HTMLElement;
-  readonly #notice: HTMLElement;
-  readonly #noticeLink: HTMLAnchorElement;
   readonly #openLink: HTMLAnchorElement;
   readonly #copy: HTMLButtonElement;
   readonly #sizeBadge: HTMLElement;
   readonly #sizeButtons = new Map<SizeLabel, HTMLButtonElement>();
   #frame: HTMLIFrameElement | null = null;
   #url: URL | null = null;
-  #slowTimer = 0;
-  #closing = false;
+  #phase: 'closed' | 'growing' | 'open' | 'closing' = 'closed';
+  /** The grow animations: the dialog and its backdrop. */
+  #growth: Animation[] = [];
+  #backstop = 0;
 
   constructor() {
     for (const stray of document.querySelectorAll(ownedSelector(PREVIEW_ROLE))) {
@@ -125,24 +125,8 @@ export class PreviewDialog {
       el('div', { className: 'handle s', attrs: { 'data-edge': 's' } }),
       el('div', { className: 'handle se', attrs: { 'data-edge': 'se' } }),
     ]);
-    this.#slowHint = el('p', { className: 'hint', attrs: { hidden: '' } }, [
-      'Taking a while? Open it in a new tab instead.',
-    ]);
-    this.#loading = el('div', { className: 'loading', attrs: { role: 'status' } }, [
-      el('span', { className: 'spinner', attrs: { 'aria-hidden': 'true' } }),
-      el('span', {}, ['Loading preview…']),
-      this.#slowHint,
-    ]);
-    this.#noticeLink = el('a', { attrs: { target: '_blank', rel: 'noopener noreferrer' } }, ['Open in new tab']);
-    this.#notice = el('div', { className: 'notice', attrs: { hidden: '' } }, [
-      el('strong', {}, ['This page can’t be previewed here']),
-      el('span', {}, [
-        'It is not served over a secure connection, so the browser will not show it inside dev-null.sh.',
-      ]),
-      this.#noticeLink,
-    ]);
     this.#sizeBadge = el('div', { className: 'size', attrs: { 'aria-hidden': 'true' } });
-    this.#stage = el('div', { className: 'stage' }, [this.#viewport, this.#loading, this.#notice, this.#sizeBadge]);
+    this.#stage = el('div', { className: 'stage' }, [this.#viewport, this.#sizeBadge]);
 
     this.#dialog = el('dialog', { attrs: { 'aria-label': 'Link preview', 'data-test': 'dnpp-link-preview' } }, [
       el('div', { className: 'bar' }, [
@@ -168,7 +152,12 @@ export class PreviewDialog {
     });
     this.#dialog.addEventListener('cancel', (event) => {
       event.preventDefault();
-      this.close();
+
+      if (this.#phase === 'growing') {
+        this.cancel();
+      } else {
+        this.close();
+      }
     });
     // A click on the dialog element itself, outside its content, is a click on the dimmed page: close.
     this.#dialog.addEventListener('click', (event) => {
@@ -183,6 +172,7 @@ export class PreviewDialog {
     this.#viewport.addEventListener('pointerdown', this.#onResizeStart);
   }
 
+  /** Whether the preview is showing at all, growing included. */
   get isOpen(): boolean {
     return this.#dialog.open;
   }
@@ -192,45 +182,104 @@ export class PreviewDialog {
     return this.#dialog;
   }
 
-  open(url: URL, origin: { x: number; y: number }): void {
-    if (this.#dialog.open) {
-      this.#teardownFrame();
-    }
+  /**
+   * Starts growing the preview out of the pressed link, over `duration` ms, with the page already loading inside. It
+   * is not usable until {@link commit}; {@link cancel} shrinks it back as if nothing happened.
+   */
+  grow(url: URL, origin: { x: number; y: number }, duration: number): void {
+    this.#reset();
+    this.#show(url);
+    this.#phase = 'growing';
+    this.#dialog.setAttribute('data-growing', '');
 
-    this.#closing = false;
-    this.#url = url;
-    this.#hostName.textContent = url.host;
-    this.#path.textContent = `${url.pathname}${url.search}`.replace(/^\/$/, '');
-    this.#openLink.href = url.href;
-    this.#noticeLink.href = url.href;
-    this.#setSize('Desktop');
+    const rect = this.#dialog.getBoundingClientRect();
 
-    if (!this.#host.isConnected) {
-      document.body.append(this.#host);
-    }
+    this.#dialog.style.transformOrigin = `${String(origin.x - rect.left)}px ${String(origin.y - rect.top)}px`;
 
-    this.#lockScroll(true);
+    // It is solid early on, and reaches full size only as the hold completes. Without motion, it only fades in.
+    const small = prefersReducedMotion() ? 'none' : `scale(${String(GROW_FROM)})`;
+    const timing: KeyframeAnimationOptions = { duration, easing: 'cubic-bezier(0.5, 0, 0.3, 1)', fill: 'both' };
 
-    if (!this.#dialog.open) {
-      this.#dialog.showModal();
-      this.#popFrom(origin);
-    }
-
-    this.#load();
+    this.#growth = [
+      this.#dialog.animate(
+        [
+          { opacity: 0, transform: small },
+          { opacity: 1, offset: 0.25 },
+          { opacity: 1, transform: 'none' },
+        ],
+        timing,
+      ),
+      this.#dialog.animate([{ opacity: 0 }, { opacity: 1 }], { ...timing, pseudoElement: '::backdrop' }),
+    ];
   }
 
-  close(): void {
-    if (!this.#dialog.open || this.#closing) {
+  /** The hold completed: the preview settles into place with a small pop, and becomes usable. */
+  commit(): void {
+    if (this.#phase !== 'growing') {
       return;
     }
 
-    this.#closing = true;
+    this.#phase = 'open';
+    this.#dialog.removeAttribute('data-growing');
+    this.#stopGrowth();
+
+    if (!prefersReducedMotion()) {
+      this.#dialog.animate([{ transform: 'scale(1.012)' }, { transform: 'none' }], {
+        duration: 220,
+        easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
+      });
+    }
+  }
+
+  /** Let go too early: the preview shrinks back into the link and is gone. */
+  cancel(): void {
+    if (this.#phase !== 'growing') {
+      return;
+    }
+
+    this.#phase = 'closing';
+
+    const growth = this.#growth;
+    const elapsed = Number(growth[0]?.currentTime ?? 0);
+    const finish = (): void => {
+      if (this.#phase === 'closing') {
+        this.#hide();
+      }
+    };
+
+    for (const animation of growth) {
+      animation.updatePlaybackRate(-2);
+    }
+
+    void Promise.all(growth.map(async (animation) => animation.finished)).then(finish, finish);
+    // In case an animation never reports back.
+    this.#backstop = window.setTimeout(finish, elapsed / 2 + 100);
+  }
+
+  /** Opens the preview straight away, popping out from `origin`. */
+  open(url: URL, origin: { x: number; y: number }): void {
+    this.grow(url, origin, 280);
+    this.commit();
+    this.#popFrom(origin);
+  }
+
+  close(): void {
+    if (this.#phase === 'growing') {
+      this.cancel();
+
+      return;
+    }
+
+    if (this.#phase !== 'open') {
+      return;
+    }
+
+    this.#phase = 'closing';
 
     const finish = (): void => {
-      this.#teardownFrame();
-      this.#dialog.close();
-      this.#lockScroll(false);
-      this.#closing = false;
+      if (this.#phase === 'closing') {
+        this.#hide();
+      }
     };
 
     if (prefersReducedMotion()) {
@@ -239,38 +288,78 @@ export class PreviewDialog {
       return;
     }
 
-    const out = this.#dialog.animate(
-      [
-        { opacity: 1, transform: 'none' },
-        { opacity: 0, transform: 'scale(0.97)' },
-      ],
-      { duration: 150, easing: 'ease-in', fill: 'forwards' },
-    );
+    const out = [
+      this.#dialog.animate(
+        [
+          { opacity: 1, transform: 'none' },
+          { opacity: 0, transform: 'scale(0.97)' },
+        ],
+        { duration: 150, easing: 'ease-in', fill: 'forwards' },
+      ),
+      this.#dialog.animate([{ opacity: 1 }, { opacity: 0 }], {
+        duration: 150,
+        pseudoElement: '::backdrop',
+        fill: 'forwards',
+      }),
+    ];
 
-    this.#dialog.animate([{ opacity: 1 }, { opacity: 0 }], {
-      duration: 150,
-      pseudoElement: '::backdrop',
-      fill: 'forwards',
-    });
-    out.finished
-      .catch(() => undefined)
-      .finally(() => {
-        finish();
-        this.#dialog.getAnimations({ subtree: false }).forEach((animation) => {
-          animation.cancel();
-        });
-      });
+    void Promise.all(out.map(async (animation) => animation.finished)).then(finish, finish);
+    this.#backstop = window.setTimeout(finish, 250);
   }
 
   destroy(): void {
-    this.#teardownFrame();
+    this.#hide();
+    this.#host.remove();
+  }
+
+  /** Puts the page in place and shows the dialog. */
+  #show(url: URL): void {
+    this.#url = url;
+    this.#hostName.textContent = url.host;
+    this.#path.textContent = `${url.pathname}${url.search}`.replace(/^\/$/, '');
+    this.#openLink.href = url.href;
+    this.#setSize('Desktop');
+
+    if (!this.#host.isConnected) {
+      document.body.append(this.#host);
+    }
+
+    this.#lockScroll(true);
+    this.#dialog.showModal();
+    this.#load();
+  }
+
+  /** Closes at once, and puts everything back as it was. */
+  #hide(): void {
+    this.#reset();
 
     if (this.#dialog.open) {
       this.#dialog.close();
     }
 
     this.#lockScroll(false);
-    this.#host.remove();
+  }
+
+  #reset(): void {
+    clearTimeout(this.#backstop);
+    this.#stopGrowth();
+
+    for (const animation of this.#dialog.getAnimations()) {
+      animation.cancel();
+    }
+
+    this.#teardownFrame();
+    this.#dialog.removeAttribute('data-growing');
+    this.#phase = 'closed';
+  }
+
+  #stopGrowth(): void {
+    for (const animation of this.#growth) {
+      animation.finished.catch(() => undefined);
+      animation.cancel();
+    }
+
+    this.#growth = [];
   }
 
   /** Loads, or reloads, the page in a fresh frame. A new frame each time also means fresh, empty storage. */
@@ -282,22 +371,6 @@ export class PreviewDialog {
     }
 
     this.#teardownFrame();
-    clearTimeout(this.#slowTimer);
-
-    // An https page cannot show an http one inside it. Say so, rather than leave a blank frame.
-    if (url.protocol !== 'https:') {
-      this.#loading.hidden = true;
-      this.#notice.hidden = false;
-
-      return;
-    }
-
-    this.#notice.hidden = true;
-    this.#loading.hidden = false;
-    this.#slowHint.hidden = true;
-    this.#slowTimer = window.setTimeout(() => {
-      this.#slowHint.hidden = false;
-    }, SLOW_LOAD_MS);
 
     const frame = el('iframe', {
       attrs: {
@@ -309,19 +382,14 @@ export class PreviewDialog {
       },
     });
 
-    // These must be in place before the frame starts loading.
+    // This must be in place before the frame starts loading.
     frame.setAttribute('credentialless', '');
-    frame.addEventListener('load', () => {
-      clearTimeout(this.#slowTimer);
-      this.#loading.hidden = true;
-    });
     frame.src = url.href;
     this.#viewport.append(frame);
     this.#frame = frame;
   }
 
   #teardownFrame(): void {
-    clearTimeout(this.#slowTimer);
     // Leaving the page first stops anything still loading or playing in it.
     this.#frame?.setAttribute('src', 'about:blank');
     this.#frame?.remove();

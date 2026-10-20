@@ -9,7 +9,7 @@ import { expect, SITE, test } from './fixtures';
 
 const TARGET = 'https://example.com/dnpp-preview';
 
-async function addLink(page: Page): Promise<void> {
+async function addLink(page: Page, href = TARGET): Promise<void> {
   await page.goto(SITE);
   await page.locator('[data-dnpp="nav-item"]').waitFor();
   await page.evaluate((href) => {
@@ -21,7 +21,7 @@ async function addLink(page: Page): Promise<void> {
     link.textContent = 'a link to preview';
     link.style.cssText = 'display:block;padding:16px';
     document.querySelector('[data-commit]')?.before(link);
-  }, TARGET);
+  }, href);
 }
 
 async function hold(page: Page, ms: number): Promise<void> {
@@ -78,5 +78,34 @@ test('a quick click still opens the link as usual', async ({ context, page }) =>
   await hold(page, 80);
 
   expect((await opened).url()).toBe(TARGET);
+  await expect(page.locator('[data-test="dnpp-link-preview"]')).toBeHidden();
+});
+
+test('letting go before it is full size shrinks it back, and opens nothing', async ({ context, page }) => {
+  await context.route(`${TARGET}*`, (route) => route.fulfill({ contentType: 'text/html', body: 'ok' }));
+  await addLink(page);
+
+  const tabs = context.pages().length;
+  const dialog = page.locator('[data-test="dnpp-link-preview"]');
+
+  await hold(page, 350);
+
+  await expect(dialog).toBeHidden();
+  await expect(page.locator('[data-test="dnpp-link-preview"] iframe')).toHaveCount(0);
+  await page.waitForTimeout(500);
+  expect(context.pages().length).toBe(tabs);
+});
+
+test('sites that refuse to be framed are left as plain links', async ({ context, page }) => {
+  const github = 'https://github.com/nunomaduro/dev-null.sh';
+
+  await context.route(`${github}*`, (route) => route.fulfill({ contentType: 'text/html', body: 'ok' }));
+  await addLink(page, github);
+
+  const opened = context.waitForEvent('page');
+
+  await hold(page, 900);
+
+  expect((await opened).url()).toBe(github);
   await expect(page.locator('[data-test="dnpp-link-preview"]')).toBeHidden();
 });

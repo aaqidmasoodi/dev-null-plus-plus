@@ -76,8 +76,8 @@ The extension has three parts, trusted in this order:
   sees nothing.
 - The frame is sandboxed without top navigation, modals or downloads, sends no referrer and is granted no powerful
   features (`allow=""`). The page is a different origin from dev-null.sh, so it cannot reach the log behind it.
-- Previews never widen permissions. Sites that refuse to be framed stay refused; the preview offers to open them in a
-  new tab instead.
+- Previews never widen permissions, and a site's refusal to be framed is respected: sites known to refuse are not
+  offered a preview at all (`FRAME_REFUSING_SITES` in `src/site/links.ts`).
 
 **Features**
 

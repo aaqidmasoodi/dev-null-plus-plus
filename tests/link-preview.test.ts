@@ -2,9 +2,9 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { HOLD_MS, LinkLongPress } from '@/features/link-preview/long-press';
+import { GROW_DELAY_MS, GROW_MS, HOLD_MS, LinkLongPress } from '@/features/link-preview/long-press';
 import { PREVIEW_OPEN_ATTRIBUTE, PreviewDialog } from '@/features/link-preview/preview-dialog';
-import { previewableLink } from '@/site/links';
+import { previewableLink, refusesFraming } from '@/site/links';
 
 const page = (html: string): void => {
   document.body.innerHTML = `<div id="app">${html}</div>`;
@@ -42,14 +42,14 @@ describe('previewable links', () => {
     expect(previewableLink(link('rel'))).toBeNull();
   });
 
-  it('ignore anything that is not a web page', () => {
+  it('are only https pages, which are the only ones dev-null.sh can show', () => {
     page(
-      '<a id="out" href="javascript:alert(1)">x</a><a id="mail" href="mailto:a@b.c">x</a><a id="file" href="file:///etc/passwd">x</a>',
+      '<a id="out" href="javascript:alert(1)">x</a><a id="mail" href="mailto:a@b.c">x</a><a id="http" href="http://example.com/">x</a>',
     );
 
     expect(previewableLink(link())).toBeNull();
     expect(previewableLink(link('mail'))).toBeNull();
-    expect(previewableLink(link('file'))).toBeNull();
+    expect(previewableLink(link('http'))).toBeNull();
   });
 
   it('ignore our own UI and anything outside the site’s app', () => {
@@ -59,20 +59,37 @@ describe('previewable links', () => {
     expect(previewableLink(link())).toBeNull();
     expect(previewableLink(link('outside'))).toBeNull();
   });
+
+  it('leave out sites that refuse to be shown inside another page', () => {
+    page('<a id="out" href="https://github.com/nunomaduro/dev-null.sh">repo</a>');
+
+    expect(previewableLink(link())).toBeNull();
+    expect(refusesFraming(new URL('https://gist.github.com/x'))).toBe(true);
+    expect(refusesFraming(new URL('https://www.linkedin.com/in/x'))).toBe(true);
+    expect(refusesFraming(new URL('https://x.com/nunomaduro'))).toBe(true);
+    // Only those sites, not ones that merely end the same way.
+    expect(refusesFraming(new URL('https://mygithub.com/'))).toBe(false);
+    expect(refusesFraming(new URL('https://someone.github.io/project'))).toBe(false);
+    expect(refusesFraming(new URL('https://my-project.dev/'))).toBe(false);
+  });
 });
 
 describe('press and hold', () => {
   let controller: AbortController;
-  let onOpen: ReturnType<typeof vi.fn<(url: URL, origin: { x: number; y: number }) => void>>;
+  let onGrow: ReturnType<typeof vi.fn<(url: URL, origin: { x: number; y: number }, duration: number) => void>>;
+  let onCancel: ReturnType<typeof vi.fn<() => void>>;
+  let onCommit: ReturnType<typeof vi.fn<() => void>>;
   let enabled: boolean;
 
   beforeEach(() => {
     vi.useFakeTimers();
     page('<a id="out" href="https://example.com/">example</a>');
     controller = new AbortController();
-    onOpen = vi.fn();
+    onGrow = vi.fn();
+    onCancel = vi.fn();
+    onCommit = vi.fn();
     enabled = true;
-    new LinkLongPress({ enabled: () => enabled, onOpen, signal: controller.signal });
+    new LinkLongPress({ enabled: () => enabled, onGrow, onCancel, onCommit, signal: controller.signal });
   });
 
   afterEach(() => {
@@ -89,32 +106,67 @@ describe('press and hold', () => {
     return event;
   };
 
-  it('opens a preview once held long enough, and swallows the click that follows', () => {
-    pointer('pointerdown', link(), { clientX: 40, clientY: 50 });
-    vi.advanceTimersByTime(HOLD_MS);
-
-    expect(onOpen).toHaveBeenCalledOnce();
-    expect(onOpen.mock.calls[0]?.[0].href).toBe('https://example.com/');
-    expect(onOpen.mock.calls[0]?.[1]).toEqual({ x: 40, y: 50 });
-
-    pointer('pointerup', link());
-
-    expect(click().defaultPrevented).toBe(true);
-    // Only that one click.
-    expect(click().defaultPrevented).toBe(false);
-  });
-
-  it('leaves an ordinary click alone', () => {
+  it('leaves a quick click alone', () => {
     pointer('pointerdown', link());
-    vi.advanceTimersByTime(HOLD_MS - 100);
+    vi.advanceTimersByTime(GROW_DELAY_MS - 50);
     pointer('pointerup', link());
     vi.advanceTimersByTime(HOLD_MS);
 
-    expect(onOpen).not.toHaveBeenCalled();
+    expect(onGrow).not.toHaveBeenCalled();
     expect(click().defaultPrevented).toBe(false);
   });
 
-  it('gives way to moving, scrolling and modified clicks', () => {
+  it('grows the preview from the pointer, and keeps it once held long enough', () => {
+    pointer('pointerdown', link(), { clientX: 40, clientY: 50 });
+    vi.advanceTimersByTime(GROW_DELAY_MS);
+
+    expect(onGrow).toHaveBeenCalledOnce();
+    expect(onGrow.mock.calls[0]?.[0].href).toBe('https://example.com/');
+    expect(onGrow.mock.calls[0]?.[1]).toEqual({ x: 40, y: 50 });
+    expect(onGrow.mock.calls[0]?.[2]).toBe(GROW_MS);
+    expect(onCommit).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(GROW_MS);
+    pointer('pointerup', link());
+
+    expect(onCommit).toHaveBeenCalledOnce();
+    expect(onCancel).not.toHaveBeenCalled();
+    // The click the release ends in does not also open the link, and only that one click.
+    expect(click().defaultPrevented).toBe(true);
+    expect(click().defaultPrevented).toBe(false);
+  });
+
+  it('shrinks back when let go early, and the link does not open either', () => {
+    pointer('pointerdown', link());
+    vi.advanceTimersByTime(GROW_DELAY_MS + GROW_MS / 2);
+    pointer('pointerup', link());
+    vi.advanceTimersByTime(HOLD_MS);
+
+    expect(onCancel).toHaveBeenCalledOnce();
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(click().defaultPrevented).toBe(true);
+  });
+
+  it('shrinks back when the pointer wanders off while growing', () => {
+    pointer('pointerdown', link());
+    vi.advanceTimersByTime(GROW_DELAY_MS + 50);
+    pointer('pointermove', link(), { clientX: 40 });
+    vi.advanceTimersByTime(HOLD_MS);
+
+    expect(onCancel).toHaveBeenCalledOnce();
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
+  it('is not cancelled by the page being held still under it', () => {
+    pointer('pointerdown', link());
+    vi.advanceTimersByTime(GROW_DELAY_MS + 50);
+    window.dispatchEvent(new Event('scroll'));
+    vi.advanceTimersByTime(GROW_MS);
+
+    expect(onCommit).toHaveBeenCalledOnce();
+  });
+
+  it('gives way to moving, scrolling and modified clicks before it grows', () => {
     pointer('pointerdown', link());
     pointer('pointermove', link(), { clientX: 30 });
     vi.advanceTimersByTime(HOLD_MS);
@@ -129,15 +181,16 @@ describe('press and hold', () => {
     pointer('pointerdown', link(), { button: 2 });
     vi.advanceTimersByTime(HOLD_MS);
 
-    expect(onOpen).not.toHaveBeenCalled();
+    expect(onGrow).not.toHaveBeenCalled();
+    expect(onCancel).not.toHaveBeenCalled();
   });
 
   it('tolerates a slightly unsteady hand', () => {
     pointer('pointerdown', link());
-    pointer('pointermove', link(), { clientX: 13, clientY: 12 });
+    pointer('pointermove', link(), { clientX: 14, clientY: 13 });
     vi.advanceTimersByTime(HOLD_MS);
 
-    expect(onOpen).toHaveBeenCalledOnce();
+    expect(onCommit).toHaveBeenCalledOnce();
   });
 
   it('does nothing when turned off, or once stopped', () => {
@@ -150,21 +203,7 @@ describe('press and hold', () => {
     controller.abort();
     vi.advanceTimersByTime(HOLD_MS);
 
-    expect(onOpen).not.toHaveBeenCalled();
-  });
-
-  it('shows a ring only once a press is clearly not a click', () => {
-    const ring = (): Element | null => document.querySelector('[data-dnpp="link-preview-ring"]');
-
-    pointer('pointerdown', link());
-    vi.advanceTimersByTime(50);
-    expect(ring()).toBeNull();
-
-    vi.advanceTimersByTime(100);
-    expect(ring()).not.toBeNull();
-
-    vi.advanceTimersByTime(HOLD_MS);
-    expect(ring()).toBeNull();
+    expect(onGrow).not.toHaveBeenCalled();
   });
 });
 
@@ -172,12 +211,14 @@ describe('the preview', () => {
   let preview: PreviewDialog;
 
   beforeEach(() => {
+    vi.spyOn(window, 'matchMedia').mockReturnValue({ matches: true } as MediaQueryList);
     preview = new PreviewDialog();
   });
 
   afterEach(() => {
     preview.destroy();
     document.body.innerHTML = '';
+    vi.useRealTimers();
   });
 
   const frame = (): HTMLIFrameElement | null | undefined => preview.dialog.querySelector('iframe');
@@ -201,6 +242,34 @@ describe('the preview', () => {
     expect(sandbox).not.toContain('allow-downloads');
   });
 
+  it('grows with the page already loading, and cannot be used until it settles', () => {
+    preview.grow(new URL('https://example.com/'), { x: 0, y: 0 }, GROW_MS);
+
+    expect(preview.isOpen).toBe(true);
+    expect(frame()?.src).toBe('https://example.com/');
+    expect(preview.dialog.hasAttribute('data-growing')).toBe(true);
+
+    preview.commit();
+
+    expect(preview.dialog.hasAttribute('data-growing')).toBe(false);
+    expect(preview.isOpen).toBe(true);
+  });
+
+  it('shrinks away when the hold is let go early, leaving nothing behind', () => {
+    vi.useFakeTimers();
+    preview.grow(new URL('https://example.com/'), { x: 0, y: 0 }, GROW_MS);
+    preview.cancel();
+    vi.advanceTimersByTime(GROW_MS);
+
+    expect(preview.isOpen).toBe(false);
+    expect(frame()).toBeNull();
+    expect(document.documentElement.hasAttribute(PREVIEW_OPEN_ATTRIBUTE)).toBe(false);
+
+    // A late commit changes nothing.
+    preview.commit();
+    expect(preview.isOpen).toBe(false);
+  });
+
   it('shows where the page is, and opens it in a new tab without a referrer', () => {
     preview.open(new URL('https://example.com/docs?x=1'), { x: 0, y: 0 });
 
@@ -211,13 +280,6 @@ describe('the preview', () => {
 
     expect(open?.href).toBe('https://example.com/docs?x=1');
     expect(open?.rel).toBe('noopener noreferrer');
-  });
-
-  it('explains an http page instead of showing a blank frame', () => {
-    preview.open(new URL('http://example.com/'), { x: 0, y: 0 });
-
-    expect(frame()).toBeNull();
-    expect(preview.dialog.querySelector<HTMLElement>('.notice')?.hidden).toBe(false);
   });
 
   it('reloads in a fresh frame', () => {
@@ -246,27 +308,22 @@ describe('the preview', () => {
     expect(viewport?.style.width).toBe('');
   });
 
-  it('holds the page behind still, and lets it go on close', async () => {
-    vi.spyOn(window, 'matchMedia').mockReturnValue({ matches: true } as MediaQueryList);
+  it('holds the page behind still, and lets it go on close', () => {
     preview.open(new URL('https://example.com/'), { x: 0, y: 0 });
 
     expect(document.documentElement.hasAttribute(PREVIEW_OPEN_ATTRIBUTE)).toBe(true);
 
     preview.dialog.querySelector<HTMLButtonElement>('button[aria-label="Close preview"]')?.click();
-    await Promise.resolve();
 
     expect(preview.isOpen).toBe(false);
     expect(frame()).toBeNull();
     expect(document.documentElement.hasAttribute(PREVIEW_OPEN_ATTRIBUTE)).toBe(false);
-    vi.restoreAllMocks();
   });
 
   it('closes on Escape', () => {
-    vi.spyOn(window, 'matchMedia').mockReturnValue({ matches: true } as MediaQueryList);
     preview.open(new URL('https://example.com/'), { x: 0, y: 0 });
     preview.dialog.dispatchEvent(new Event('cancel', { cancelable: true }));
 
     expect(preview.isOpen).toBe(false);
-    vi.restoreAllMocks();
   });
 });
