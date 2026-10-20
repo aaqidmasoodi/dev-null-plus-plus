@@ -1,8 +1,8 @@
-import { HYDRATION_WAIT_TIMEOUT_MS, SITE_MATCHES } from '@/core/constants';
+import { HYDRATION_WAIT_TIMEOUT_MS, isTopLevelSitePage, SITE_MATCHES } from '@/core/constants';
 import { observeDom } from '@/core/dom';
 import { waitForHydration } from '@/core/hydration';
 import { createLogger } from '@/core/logger';
-import { isContentMessage } from '@/core/messages';
+import { isContentMessage, isFromOwnBackground } from '@/core/messages';
 import { isSettingsRoute, onRouteChange, openSettingsRoute, SETTINGS_HASH } from '@/core/route';
 import { NavItem } from '@/features/nav-item/nav-item';
 import { aboutSection } from '@/features/settings-page/sections';
@@ -15,6 +15,10 @@ export default defineContentScript({
   matches: SITE_MATCHES,
   runAt: 'document_idle',
   async main(ctx) {
+    if (!isTopLevelSitePage()) {
+      return;
+    }
+
     let hydration;
 
     try {
@@ -51,8 +55,8 @@ export default defineContentScript({
     observeDom(sync, ctx.signal);
     onRouteChange(sync, ctx.signal);
 
-    const onMessage = (message: unknown): undefined => {
-      if (isContentMessage(message)) {
+    const onMessage = (message: unknown, sender: Browser.runtime.MessageSender): undefined => {
+      if (isFromOwnBackground(sender, browser.runtime.id) && isContentMessage(message)) {
         openSettingsRoute();
       }
 

@@ -1,44 +1,9 @@
-import path from 'node:path';
+import type { Page } from '@playwright/test';
 
-import { chromium, expect, test as base, type BrowserContext, type Page } from '@playwright/test';
-
-const EXTENSION_PATH = path.resolve(import.meta.dirname, '../.output/chrome-mv3');
-const SITE = 'https://dev-null.sh/log/latest';
+import { expect, SITE, test } from './fixtures';
 
 /** Console output that means React threw away the server-rendered page, which is what the hydration gate prevents. */
 const HYDRATION_ERROR = /hydrat|Minified React error #(418|419|421|422|423|425)/i;
-
-const test = base.extend<{ context: BrowserContext; page: Page; errors: string[] }>({
-  // eslint-disable-next-line no-empty-pattern -- Playwright fixtures must destructure their dependencies.
-  context: async ({}, use) => {
-    const context = await chromium.launchPersistentContext('', {
-      channel: 'chromium',
-      viewport: { width: 1280, height: 800 },
-      args: [`--disable-extensions-except=${EXTENSION_PATH}`, `--load-extension=${EXTENSION_PATH}`],
-    });
-
-    await use(context);
-    await context.close();
-  },
-  // eslint-disable-next-line no-empty-pattern -- Playwright fixtures must destructure their dependencies.
-  errors: async ({}, use) => {
-    await use([]);
-  },
-  page: async ({ context, errors }, use) => {
-    const page = await context.newPage();
-
-    page.on('console', (message) => {
-      if (message.type() === 'error') {
-        errors.push(message.text());
-      }
-    });
-    page.on('pageerror', (error) => {
-      errors.push(error.message);
-    });
-
-    await use(page);
-  },
-});
 
 const navItem = (page: Page) => page.locator('[data-test="dnpp-nav-item"]');
 const previousLabel = (page: Page) =>
