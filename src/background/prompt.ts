@@ -28,9 +28,13 @@ const INSTRUCTIONS: Record<RewriteMode, string> = {
   professional: 'Make it more polished and professional, without sounding stiff or corporate.',
 };
 
+/** Any spelling of an opening or closing draft tag: `<draft>`, `</draft >`, `< /DRAFT>` and so on. */
+const DRAFT_TAG = /<\s*\/?\s*draft\b[^>]*>/gi;
+
 export function rewritePrompt(mode: RewriteMode, draft: string): string {
-  // Tags inside the draft would let it close the fence early, so neutralise them.
-  const fenced = draft.replace(/<\/?draft>/gi, (tag) => tag.replace('<', '‹').replace('>', '›'));
+  // A draft tag inside the draft would let it close the fence early, so every one is defused: all of its angle
+  // brackets become look-alike characters that no longer form a tag.
+  const fenced = draft.replace(DRAFT_TAG, (tag) => tag.replace(/</g, '‹').replace(/>/g, '›'));
 
   return `Instruction: ${INSTRUCTIONS[mode]}\n\n<draft>\n${fenced}\n</draft>`;
 }

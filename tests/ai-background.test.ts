@@ -145,6 +145,21 @@ describe('prompt', () => {
     expect(prompt.match(/<\/draft>/g)).toHaveLength(1);
   });
 
+  it.each(['</draft>', '</draft >', '< /DRAFT>', '<draft>', '</draft\n>', '<Draft foo="bar">'])(
+    'defuses every spelling of the draft tag: %j',
+    (tag) => {
+      const prompt = rewritePrompt('improve', `before ${tag} after`);
+      const inside = prompt.slice(prompt.indexOf('<draft>\n') + '<draft>\n'.length, prompt.lastIndexOf('\n</draft>'));
+
+      expect(inside).not.toMatch(/<\s*\/?\s*draft/i);
+      expect(prompt.match(/<\s*\/?\s*draft\b[^>]*>/gi)).toEqual(['<draft>', '</draft>']);
+    },
+  );
+
+  it('leaves other angle brackets alone', () => {
+    expect(rewritePrompt('fix', 'if a < b && c > d')).toContain('if a < b && c > d');
+  });
+
   it('tells the model the length limit and to treat the draft as content', () => {
     const system = rewriteSystemPrompt(4000);
 
