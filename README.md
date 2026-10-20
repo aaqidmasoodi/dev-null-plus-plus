@@ -2,9 +2,9 @@
 
 Extra powers for [dev-null.sh](https://dev-null.sh), the social network for developers.
 
-Install it and that is it. dev/null++ adds itself to the site's left navigation, directly under **Settings**, and
-everything it does lives there, inside dev-null.sh. There is no popup and no options page. The toolbar icon opens the
-same panel, or takes you to dev-null.sh from any other tab.
+Install it and that is it. dev/null++ adds **/dev/null++** to the site's left navigation, directly under **Settings**.
+It opens a settings page inside dev-null.sh, at `#dev-null-plus-plus` on whatever page you are on. There is no popup
+and no options page. The toolbar icon opens the same page.
 
 ## Install (development build)
 
@@ -49,11 +49,13 @@ src/
     background.ts               Toolbar icon, and injecting into tabs already open on install or update
     devnull.content.ts          The content script: waits for hydration, then mounts the features
     hydration-probe.content.ts  Main-world script that reports when React has finished hydrating
-  core/                         Shared, site-agnostic pieces: constants, logger, DOM helpers, messages
-  site/selectors.ts             Every assumption about dev-null.sh's markup, in one place
+  core/                         Shared, site-agnostic pieces: constants, logger, DOM helpers, route, branding
+  site/
+    selectors.ts                Every assumption about dev-null.sh's markup, in one place
+    takeover.ts                 Hides the site's page while ours shows
   features/
-    nav-item/                   The "dev/null++" entry in the left navigation
-    panel/                      The panel it opens
+    nav-item/                   The "/dev/null++" link in the left navigation
+    settings-page/              The settings page it opens, built from sections
 ```
 
 A few rules keep this working while dev-null.sh deploys many times a day.
@@ -67,10 +69,15 @@ A few rules keep this working while dev-null.sh deploys many times a day.
   makes React throw the page away and render it again. `hydration-probe.content.ts` runs in the page's main world,
   where React's bookkeeping is visible, and tells the content script when hydration has committed. After that, a
   `MutationObserver` puts the nav item back whenever React re-renders or remounts the navigation.
-- **Our UI stays out of the site's way.** The panel is a native `<dialog>` in a closed shadow root attached to `<body>`,
-  outside the React root. It reads the site's theme tokens (`--background`, `--primary` and so on), which inherit into
-  the shadow root, so it matches light and dark mode automatically. Key presses inside it never reach the site's
-  single-key shortcuts.
+- **Routes are URL fragments.** The settings page lives at `#dev-null-plus-plus`, so reloading, sharing, Back and
+  Forward all work. A made-up path would 404 when reloaded and when Inertia polls `router.reload()`, which requests the
+  current URL. Inertia keeps fragments on the URL across its visits and polls.
+- **Our pages replace the site's, they don't remove it.** The settings page sits in the middle column, and the site's
+  page is hidden with CSS while it shows, so React keeps its state and Back is instant. It holds the tab title while
+  open and gives the site's back after.
+- **Our UI stays out of the site's styles.** The settings page renders in a shadow root and reads the site's theme
+  tokens (`--card`, `--border`, `--muted-foreground` and so on), which inherit into it, so it matches light and dark
+  mode automatically.
 - **Clean up.** Everything the extension adds carries a `data-dnpp` attribute. On update the old copy removes its
   nodes and the new one removes any it left behind.
 

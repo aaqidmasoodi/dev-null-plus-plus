@@ -3,8 +3,11 @@ import { observeDom } from '@/core/dom';
 import { waitForHydration } from '@/core/hydration';
 import { createLogger } from '@/core/logger';
 import { isContentMessage } from '@/core/messages';
+import { isSettingsRoute, onRouteChange, openSettingsRoute, SETTINGS_HASH } from '@/core/route';
 import { NavItem } from '@/features/nav-item/nav-item';
-import { Panel } from '@/features/panel/panel';
+import { aboutSection } from '@/features/settings-page/sections';
+import { SettingsPage } from '@/features/settings-page/settings-page';
+import { removeTakeover } from '@/site/takeover';
 
 const logger = createLogger('content');
 
@@ -25,31 +28,32 @@ export default defineContentScript({
       logger.warn(`Could not confirm the page finished hydrating (${hydration}), starting anyway.`);
     }
 
-    const panel = new Panel({
-      version: browser.runtime.getManifest().version,
-      onOpenChange: (open) => {
-        navItem.setExpanded(open);
-      },
+    const navItem = new NavItem({ href: SETTINGS_HASH });
+    const settingsPage = new SettingsPage({
+      sections: [aboutSection(browser.runtime.getManifest().version)],
     });
-    const navItem = new NavItem({
-      onActivate: () => {
-        panel.toggle();
-      },
-    });
-    const ensureNavItem = (): void => {
+
+    /** Brings everything in line with the URL and the DOM. Runs on every change of either, so it must stay cheap. */
+    const sync = (): void => {
       try {
+        const onSettings = isSettingsRoute();
+
+        navItem.setActive(onSettings);
+        settingsPage.setOpen(onSettings);
         navItem.ensure();
+        settingsPage.ensure();
       } catch (error) {
-        logger.error('Could not place the navigation item.', error);
+        logger.error('Could not update the page.', error);
       }
     };
 
-    ensureNavItem();
-    observeDom(ensureNavItem, ctx.signal);
+    sync();
+    observeDom(sync, ctx.signal);
+    onRouteChange(sync, ctx.signal);
 
     const onMessage = (message: unknown): undefined => {
       if (isContentMessage(message)) {
-        panel.toggle();
+        openSettingsRoute();
       }
 
       return undefined;
@@ -60,7 +64,8 @@ export default defineContentScript({
     ctx.onInvalidated(() => {
       browser.runtime.onMessage.removeListener(onMessage);
       navItem.destroy();
-      panel.destroy();
+      settingsPage.destroy();
+      removeTakeover();
     });
 
     logger.debug('Ready.', { hydration });

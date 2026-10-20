@@ -1,7 +1,7 @@
 import { createLogoMark, createWordmark } from '@/core/brand';
 import { EXTENSION_NAME } from '@/core/constants';
 import { markOwned, ownedSelector } from '@/core/dom';
-import { findLinkTemplate, findMainNav, findSettingsLink } from '@/site/selectors';
+import { findActiveLink, findLinkTemplate, findMainNav, findSettingsLink } from '@/site/selectors';
 
 export const NAV_ITEM_ROLE = 'nav-item';
 
@@ -12,6 +12,9 @@ export const NAV_ITEM_ROLE = 'nav-item';
  */
 const FALLBACK_CLASSES = {
   item: 'relative isolate block h-11 rounded-lg py-3 pr-3 pl-4 text-[15px] leading-5 font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground',
+  activeItem:
+    'relative isolate block h-11 rounded-lg py-3 pr-3 pl-4 text-[15px] leading-5 font-medium transition-colors text-primary hover:bg-transparent hover:text-primary',
+  highlight: 'absolute inset-0 -z-10 rounded-lg bg-primary-soft',
   content: 'flex items-center gap-3 [view-transition-class:indicator-label]',
   iconWrap: 'relative',
   icon: 'size-5',
@@ -19,30 +22,49 @@ const FALLBACK_CLASSES = {
     'max-w-0 overflow-hidden opacity-0 transition-[max-width,opacity] duration-300 ease-[cubic-bezier(0.33,1,0.68,1)] nav-wide:max-w-40 nav-wide:opacity-100 motion-reduce:transition-none',
 } as const;
 
-type ItemClasses = Record<keyof typeof FALLBACK_CLASSES, string>;
+export type ItemClasses = Record<keyof typeof FALLBACK_CLASSES, string>;
+
+function classOf(element: Element | null | undefined, fallback: string): string {
+  const value = element?.getAttribute('class')?.trim();
+
+  return value === undefined || value === '' ? fallback : value;
+}
+
+function withoutClasses(value: string, exclude: (name: string) => boolean): string {
+  return value
+    .split(/\s+/)
+    .filter((name) => name !== '' && !exclude(name))
+    .join(' ');
+}
 
 /**
- * Reads the classes off a real nav link, which is laid out as `a > span.content > (span.iconWrap > svg, span.label)`.
- * Any part that is missing falls back on its own.
+ * Reads the classes off real nav links, which are laid out as
+ * `a > (span.highlight when current)? > span.content > (span.iconWrap > svg, span.label)`. Any part that is missing
+ * falls back on its own.
+ *
+ * @param template A link that is not the current page.
+ * @param active The current page's link, if any, for the highlighted look.
  */
-export function readItemClasses(template: HTMLAnchorElement | null): ItemClasses {
-  const content = template?.firstElementChild;
+export function readItemClasses(template: HTMLAnchorElement | null, active: HTMLAnchorElement | null): ItemClasses {
+  const content = template?.querySelector(':scope > span:not([aria-hidden])');
   const iconWrap = content?.children[0];
   const icon = iconWrap?.querySelector('svg');
   const label = content?.children[1];
-  const classOf = (element: Element | null | undefined, fallback: string): string => {
-    const value = element?.getAttribute('class')?.trim();
-
-    return value === undefined || value === '' ? fallback : value;
-  };
+  const highlight = active?.querySelector(':scope > span[aria-hidden]');
   // Lucide adds marker classes such as `lucide-settings-2` that would mislabel our icon.
-  const iconClass = classOf(icon, FALLBACK_CLASSES.icon)
-    .split(/\s+/)
-    .filter((name) => name !== 'lucide' && !name.startsWith('lucide-'))
-    .join(' ');
+  const iconClass = withoutClasses(
+    classOf(icon, FALLBACK_CLASSES.icon),
+    (name) => name === 'lucide' || name.startsWith('lucide-'),
+  );
+  // The highlight carries a view-transition name, which must stay unique on the page.
+  const highlightClass = withoutClasses(classOf(highlight, FALLBACK_CLASSES.highlight), (name) =>
+    name.includes('view-transition-name'),
+  );
 
   return {
     item: classOf(template, FALLBACK_CLASSES.item),
+    activeItem: classOf(active, FALLBACK_CLASSES.activeItem),
+    highlight: highlightClass === '' ? FALLBACK_CLASSES.highlight : highlightClass,
     content: classOf(content, FALLBACK_CLASSES.content),
     iconWrap: classOf(iconWrap, FALLBACK_CLASSES.iconWrap),
     icon: iconClass === '' ? FALLBACK_CLASSES.icon : iconClass,
@@ -50,19 +72,16 @@ export function readItemClasses(template: HTMLAnchorElement | null): ItemClasses
   };
 }
 
-export function buildNavItem(classes: ItemClasses): HTMLButtonElement {
-  const button = document.createElement('button');
+export function buildNavItem(classes: ItemClasses, href: string): HTMLAnchorElement {
+  const link = document.createElement('a');
 
-  markOwned(button, NAV_ITEM_ROLE);
-  button.type = 'button';
-  button.className = classes.item;
-  button.title = `${EXTENSION_NAME} settings`;
-  button.dataset.test = 'dnpp-nav-item';
-  button.setAttribute('aria-haspopup', 'dialog');
-  button.setAttribute('aria-expanded', 'false');
-  // The site's links are block-level anchors; a button needs these to fill the row and line up the same way.
-  button.style.width = '100%';
-  button.style.textAlign = 'left';
+  markOwned(link, NAV_ITEM_ROLE);
+  link.href = href;
+  link.className = classes.item;
+  // The site shows a tooltip on its icons when the nav is collapsed. A native one stands in for ours.
+  link.title = EXTENSION_NAME;
+  link.setAttribute('aria-label', EXTENSION_NAME);
+  link.dataset.test = 'dnpp-nav-item';
 
   const content = document.createElement('span');
 
@@ -81,34 +100,38 @@ export function buildNavItem(classes: ItemClasses): HTMLButtonElement {
   label.append(createWordmark());
 
   content.append(iconWrap, label);
-  button.append(content);
+  link.append(content);
 
-  return button;
+  return link;
 }
 
 export interface NavItemOptions {
-  onActivate: () => void;
+  /** Where the item links to, the settings page's fragment. */
+  href: string;
 }
 
 /**
- * Keeps a "dev/null++" item in the site's left navigation, directly under Settings.
+ * Keeps a "/dev/null++" link in the site's left navigation, directly under Settings.
  *
  * The nav belongs to React, which can re-render or remount it on any page change. {@link NavItem.ensure} is called on
  * every DOM change and puts the item back where it belongs if it went missing, moved, or ended up in a fresh nav. It
  * is idempotent and returns early in the common case where nothing changed.
+ *
+ * It is a plain link to a URL fragment, so the browser handles the click, including opening it in a new tab.
  */
 export class NavItem {
-  readonly #onActivate: () => void;
-  #element: HTMLButtonElement | null = null;
+  readonly #href: string;
+  #element: HTMLAnchorElement | null = null;
+  #classes: ItemClasses | null = null;
   #nav: HTMLElement | null = null;
   #anchor: HTMLAnchorElement | null = null;
-  #expanded = false;
+  #active = false;
 
-  constructor({ onActivate }: NavItemOptions) {
-    this.#onActivate = onActivate;
+  constructor({ href }: NavItemOptions) {
+    this.#href = href;
   }
 
-  get element(): HTMLButtonElement | null {
+  get element(): HTMLAnchorElement | null {
     return this.#element;
   }
 
@@ -130,7 +153,9 @@ export class NavItem {
 
     if (this.#element === null || nav !== this.#nav) {
       this.#element?.remove();
-      this.#element = this.#create(nav);
+      this.#classes = readItemClasses(findLinkTemplate(nav), findActiveLink(nav));
+      this.#element = buildNavItem(this.#classes, this.#href);
+      this.#applyActive();
     }
 
     this.#nav = nav;
@@ -140,24 +165,51 @@ export class NavItem {
       anchor.after(this.#element);
     } else {
       // No Settings link to sit under: go just before the first button (Search), which is where the links end.
-      const firstButton = [...nav.children].find(
-        (child) => child instanceof HTMLButtonElement && child !== this.#element,
-      );
+      const firstButton = [...nav.children].find((child) => child instanceof HTMLButtonElement);
 
       nav.insertBefore(this.#element, firstButton ?? null);
     }
   }
 
-  setExpanded(expanded: boolean): void {
-    this.#expanded = expanded;
-    this.#element?.setAttribute('aria-expanded', String(expanded));
+  /** Highlights the item as the current page, the way the site highlights its own. */
+  setActive(active: boolean): void {
+    if (active === this.#active) {
+      return;
+    }
+
+    this.#active = active;
+    this.#applyActive();
   }
 
   destroy(): void {
     this.#element?.remove();
     this.#element = null;
+    this.#classes = null;
     this.#nav = null;
     this.#anchor = null;
+  }
+
+  #applyActive(): void {
+    const element = this.#element;
+    const classes = this.#classes;
+
+    if (element === null || classes === null) {
+      return;
+    }
+
+    element.className = this.#active ? classes.activeItem : classes.item;
+    element.querySelector(':scope > span[aria-hidden]')?.remove();
+
+    if (this.#active) {
+      const highlight = document.createElement('span');
+
+      highlight.setAttribute('aria-hidden', 'true');
+      highlight.className = classes.highlight;
+      element.prepend(highlight);
+      element.setAttribute('aria-current', 'page');
+    } else {
+      element.removeAttribute('aria-current');
+    }
   }
 
   #isInPlace(): boolean {
@@ -181,17 +233,5 @@ export class NavItem {
         stray.remove();
       }
     }
-  }
-
-  #create(nav: HTMLElement): HTMLButtonElement {
-    const button = buildNavItem(readItemClasses(findLinkTemplate(nav)));
-
-    button.setAttribute('aria-expanded', String(this.#expanded));
-    button.addEventListener('click', (event) => {
-      event.preventDefault();
-      this.#onActivate();
-    });
-
-    return button;
   }
 }

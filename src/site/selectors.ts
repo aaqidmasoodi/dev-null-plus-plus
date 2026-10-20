@@ -16,6 +16,10 @@ export const SELECTORS = {
   navRail: '[data-nav-rail]',
   /** The list of links and buttons inside the rail. */
   mainNav: '[data-nav-rail] nav[aria-label="Main"]',
+  /** The middle column. Our pages render in here. */
+  main: 'main[data-main]',
+  /** The site's content inside the middle column: the mobile header and the current page. Hidden while ours shows. */
+  mainContent: 'main[data-main] > [data-nav-content]',
 } as const;
 
 /** Signed in, Settings links to `/settings/profile`. Signed out, every item links to the sign-in page instead. */
@@ -52,4 +56,13 @@ export function findLinkTemplate(nav: HTMLElement): HTMLAnchorElement | null {
   const links = navLinks(nav);
 
   return links.find((link) => !link.hasAttribute('aria-current')) ?? links[0] ?? null;
+}
+
+/** The site's link for the current page, if there is one, to copy the active styling from. */
+export function findActiveLink(nav: HTMLElement): HTMLAnchorElement | null {
+  return navLinks(nav).find((link) => link.getAttribute('aria-current') === 'page') ?? null;
+}
+
+export function findMain(root: ParentNode = document): HTMLElement | null {
+  return root.querySelector<HTMLElement>(SELECTORS.main);
 }

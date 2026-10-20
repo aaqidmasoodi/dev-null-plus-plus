@@ -55,17 +55,77 @@ test('adds dev/null++ to the navigation, directly under Settings', async ({ page
   expect(errors.filter((error) => HYDRATION_ERROR.test(error))).toEqual([]);
 });
 
-test('opens and closes the panel', async ({ page }) => {
+const settingsHeading = (page: Page) => page.getByRole('heading', { level: 1, name: '/dev/null++' });
+const siteContent = (page: Page) => page.locator('main[data-main] > [data-nav-content]');
+
+async function expectSettingsOpen(page: Page): Promise<void> {
+  await expect(page).toHaveURL(/#dev-null-plus-plus$/);
+  await expect(settingsHeading(page)).toBeVisible();
+  await expect(page.getByText('Installed and running')).toBeVisible();
+  await expect(siteContent(page)).toBeHidden();
+  await expect(navItem(page)).toHaveAttribute('aria-current', 'page');
+  await expect(page).toHaveTitle('/dev/null++ - /dev/null');
+}
+
+async function expectSettingsClosed(page: Page): Promise<void> {
+  await expect(settingsHeading(page)).toHaveCount(0);
+  await expect(siteContent(page)).toBeVisible();
+  await expect(navItem(page)).not.toHaveAttribute('aria-current', 'page');
+}
+
+test('opens the settings page from the navigation, on its own URL', async ({ page }) => {
   await page.goto(SITE);
   await navItem(page).click();
 
-  // The panel sits in a closed shadow root, which Playwright cannot see into, so check the state the nav item mirrors.
-  await expect(navItem(page)).toHaveAttribute('aria-expanded', 'true');
+  await expectSettingsOpen(page);
+  await expect(page).toHaveURL(`${SITE}#dev-null-plus-plus`);
+});
 
-  await page.keyboard.press('Escape');
-  await expect(navItem(page)).toHaveAttribute('aria-expanded', 'false');
-  // Focus returns to the item that opened it.
-  await expect(navItem(page)).toBeFocused();
+test('Back closes the settings page and Forward reopens it', async ({ page }) => {
+  await page.goto(SITE);
+  await navItem(page).click();
+  await expectSettingsOpen(page);
+
+  await page.goBack();
+  await expect(page).toHaveURL(SITE);
+  await expectSettingsClosed(page);
+
+  await page.goForward();
+  await expectSettingsOpen(page);
+});
+
+test('reloading the settings URL opens the settings page', async ({ page }) => {
+  await page.goto(`${SITE}#dev-null-plus-plus`);
+
+  await expectSettingsOpen(page);
+});
+
+test('leaving through the site’s navigation closes the settings page', async ({ page }) => {
+  await page.goto(`${SITE}#dev-null-plus-plus`);
+  await expectSettingsOpen(page);
+
+  await page.locator('[data-nav-rail] nav[aria-label="Main"] > a').first().click();
+
+  await expect(page).not.toHaveURL(/#dev-null-plus-plus/);
+  await expectSettingsClosed(page);
+});
+
+test('stays open through the site’s background refresh', async ({ page, errors }) => {
+  // The site refreshes the page's data every 30 seconds with Inertia's router.reload(), which requests the current URL.
+  test.slow();
+  await page.goto(`${SITE}#dev-null-plus-plus`);
+  await expectSettingsOpen(page);
+
+  const refresh = page.waitForRequest(
+    (request) => request.headers()['x-inertia'] === 'true' && new URL(request.url()).pathname === '/log/latest',
+    { timeout: 45_000 },
+  );
+
+  await refresh;
+  await page.waitForLoadState('networkidle');
+
+  await expectSettingsOpen(page);
+  expect(errors.filter((error) => /404|not found/i.test(error))).toEqual([]);
 });
 
 test('keeps its place when the navigation collapses and the page changes', async ({ page }) => {

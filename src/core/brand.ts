@@ -37,7 +37,12 @@ export function createLogoMark(className: string): SVGSVGElement {
   return svg;
 }
 
-/** "/dev/null++", with the second slash outlined in the accent like the site's wordmark. */
+/**
+ * "/dev/null++", with the second slash outlined in the accent like the site's wordmark.
+ *
+ * Browsers compute the accessible name around the styled slash as "/dev / null++", so whatever contains the wordmark
+ * should carry `aria-label` with the plain name.
+ */
 export function createWordmark(): DocumentFragment {
   const fragment = document.createDocumentFragment();
   const slash = document.createElement('span');

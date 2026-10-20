@@ -1,6 +1,7 @@
 import { SITE_MATCHES, SITE_ORIGIN } from '@/core/constants';
 import { createLogger } from '@/core/logger';
 import type { ContentMessage } from '@/core/messages';
+import { SETTINGS_HASH } from '@/core/route';
 
 const logger = createLogger('background');
 
@@ -49,25 +50,27 @@ export default defineBackground(() => {
     }
   });
 
-  // The toolbar icon opens the panel on dev-null.sh, and takes you there from anywhere else.
+  // The toolbar icon opens the settings page: in place on dev-null.sh, in a new tab from anywhere else.
   browser.action.onClicked.addListener((tab) => {
     void (async () => {
-      if (tab.id !== undefined && isSiteUrl(tab.url)) {
-        const message: ContentMessage = { type: 'dnpp:toggle-panel' };
+      if (tab.id === undefined || tab.url === undefined || !isSiteUrl(tab.url)) {
+        await browser.tabs.create({ url: `${SITE_ORIGIN}/${SETTINGS_HASH}` });
 
-        try {
-          await browser.tabs.sendMessage(tab.id, message);
-
-          return;
-        } catch (error) {
-          // No content script listening yet, for example while the page is still loading.
-          logger.warn('Could not reach the page.', error);
-
-          return;
-        }
+        return;
       }
 
-      await browser.tabs.create({ url: `${SITE_ORIGIN}/` });
+      const message: ContentMessage = { type: 'dnpp:open-settings' };
+
+      try {
+        await browser.tabs.sendMessage(tab.id, message);
+      } catch {
+        // No content script listening yet, for example while the page is still loading. Changing only the fragment
+        // does not reload the page, and the content script opens the page from the URL once it starts.
+        const url = new URL(tab.url);
+
+        url.hash = SETTINGS_HASH;
+        await browser.tabs.update(tab.id, { url: url.href });
+      }
     })();
   });
 });
