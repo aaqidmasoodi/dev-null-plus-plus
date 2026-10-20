@@ -166,7 +166,7 @@ test.describe('composer', () => {
     const tooltip = page.getByRole('tooltip');
 
     await expect(tooltip).toBeVisible();
-    await expect(tooltip).toHaveText('Rewrite');
+    await expect(tooltip).toHaveText('Rewrite with AI');
     await expect(aiButton(page)).not.toHaveAttribute('title');
 
     // Centred above the button, clear of it.

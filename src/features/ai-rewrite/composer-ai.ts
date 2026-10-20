@@ -41,6 +41,9 @@ const EXPANDED_CLASSES =
 /** Errors the user fixes on the settings page, so the message links there. */
 const SETTINGS_ERRORS: readonly RewriteErrorCode[] = ['disabled', 'not-configured', 'auth', 'model', 'quota'];
 
+/** The composer button's name, in its tooltip and for screen readers. The panel itself is titled just "Rewrite". */
+const BUTTON_LABEL = 'Rewrite with AI';
+
 const IDLE_HINT = 'Rewrites your draft in place. Pick a preset, or say how you want it and press Enter.';
 
 function prefersReducedMotion(): boolean {
@@ -117,7 +120,7 @@ class ComposerAiInstance {
         className: classes.button,
         attrs: {
           type: 'button',
-          'aria-label': 'Rewrite',
+          'aria-label': BUTTON_LABEL,
           'aria-expanded': 'false',
           'aria-controls': this.#panelId,
           'data-test': 'dnpp-ai-button',
@@ -132,8 +135,8 @@ class ComposerAiInstance {
     this.#slot =
       parts.slot === parts.anchor ? this.#button : el('span', { className: parts.slot.className }, [this.#button]);
     markOwned(this.#slot, AI_BUTTON_ROLE);
-    // The site's own tooltip, not the browser's: shown on the wrapper, like theirs, and following the toggle's state.
-    this.#tooltip = new SiteTooltip(this.#slot, this.#button, () => (this.#open ? 'Close rewrite' : 'Rewrite'));
+    // The site's own tooltip, not the browser's, shown on the wrapper like theirs.
+    this.#tooltip = new SiteTooltip(this.#slot, this.#button, () => BUTTON_LABEL);
 
     this.#input = el('input', {
       className: 'input',

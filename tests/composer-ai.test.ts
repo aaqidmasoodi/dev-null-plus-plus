@@ -98,7 +98,7 @@ describe.each([
     expect(reply?.className).toContain('size-8');
     expect(reply?.className).toContain('aria-expanded:bg-primary-soft');
     expect(commit?.querySelector('svg')?.getAttribute('class')).toBe('size-5');
-    expect(commit?.getAttribute('aria-label')).toBe('Rewrite');
+    expect(commit?.getAttribute('aria-label')).toBe('Rewrite with AI');
   });
 
   it('toggles its panel above the whole toolbar row, which stays as it was', () => {
@@ -310,7 +310,7 @@ describe.each([
       trigger().dispatchEvent(new Event('pointerenter'));
 
       expect(tooltip()?.getAttribute('role')).toBe('tooltip');
-      expect(tooltip()?.shadowRoot?.querySelector('.tip')?.textContent).toBe('Rewrite');
+      expect(tooltip()?.shadowRoot?.querySelector('.tip')?.textContent).toBe('Rewrite with AI');
       expect(tooltip()?.parentElement).toBe(document.body);
       expect(commitButton().getAttribute('aria-describedby')).toBe(tooltip()?.id);
 
@@ -327,12 +327,12 @@ describe.each([
       expect(tooltip()).not.toBeNull();
     });
 
-    it('says what a click will do, like the schedule toggle', () => {
+    it('keeps its name while the panel is open', () => {
       composerAi.ensure();
       commitButton().click();
       trigger().dispatchEvent(new Event('pointerenter'));
 
-      expect(tooltip()?.shadowRoot?.querySelector('.tip')?.textContent).toBe('Close rewrite');
+      expect(tooltip()?.shadowRoot?.querySelector('.tip')?.textContent).toBe('Rewrite with AI');
     });
 
     it('hides on press and on Escape', () => {
