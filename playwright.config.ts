@@ -1,5 +1,8 @@
 import { defineConfig } from '@playwright/test';
 
+// Lets tests see and fake requests from the extension's service worker, which is where AI requests are made.
+process.env.PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS = '1';
+
 /**
  * End-to-end tests load the built extension into Chromium and run it against the live dev-null.sh, signed out. The site
  * deploys many times a day, so these are what tell us an upstream change broke the extension before a user notices.

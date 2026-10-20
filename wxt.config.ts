@@ -1,6 +1,13 @@
 import { defineConfig } from 'wxt';
 
-import { DEV_SERVER, extensionPagesCsp, SITE_HOST_PERMISSION, SITE_ORIGIN } from './src/core/constants';
+import {
+  DEV_SERVER,
+  extensionPagesCsp,
+  OPTIONAL_HOST_PERMISSIONS,
+  SITE_HOST_PERMISSION,
+  SITE_ORIGIN,
+  VAULT_PAGE,
+} from './src/core/constants';
 
 export default defineConfig({
   srcDir: 'src',
@@ -18,8 +25,11 @@ export default defineConfig({
       default_title: '/dev/null++',
     },
     // Least privilege: only what is needed, and only on dev-null.sh. The e2e suite fails if this list grows.
-    permissions: ['scripting'],
+    permissions: ['scripting', 'storage'],
     host_permissions: [SITE_HOST_PERMISSION],
+    optional_host_permissions: OPTIONAL_HOST_PERMISSIONS,
+    // Only the key-entry page, only to dev-null.sh, and under a per-session URL so sites cannot probe for the extension.
+    web_accessible_resources: [{ resources: [VAULT_PAGE], matches: [SITE_HOST_PERMISSION], use_dynamic_url: true }],
     content_security_policy: {
       extension_pages: extensionPagesCsp(command === 'serve' ? { devServer: DEV_SERVER } : {}),
     },

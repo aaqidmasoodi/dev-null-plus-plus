@@ -1,4 +1,4 @@
-import { EXTENSION_PAGES_CSP } from '../src/core/constants';
+import { AI_PROVIDER_ORIGINS, EXTENSION_PAGES_CSP } from '../src/core/constants';
 
 import { expect, SITE, test } from './fixtures';
 
@@ -14,10 +14,15 @@ test('asks for no more permissions than it needs', async ({ background }) => {
     ).chrome.runtime.getManifest(),
   );
 
-  expect(manifest.permissions).toEqual(['scripting']);
+  expect(manifest.permissions).toEqual(['scripting', 'storage']);
   expect(manifest.host_permissions).toEqual(['https://dev-null.sh/*']);
   expect(manifest.optional_permissions ?? []).toEqual([]);
-  expect(manifest.web_accessible_resources ?? []).toEqual([]);
+  // Only Groq, which does not answer CORS, and only when the user chooses it.
+  expect(manifest.optional_host_permissions).toEqual(['https://api.groq.com/*']);
+  // Only the key-entry page, only to dev-null.sh, behind a per-session URL.
+  expect(manifest.web_accessible_resources).toEqual([
+    { resources: ['vault.html'], matches: ['https://dev-null.sh/*'], use_dynamic_url: true },
+  ]);
   expect(manifest.externally_connectable).toEqual({ ids: [] });
   expect(manifest.content_scripts?.flatMap((script) => script.matches)).toEqual([
     'https://dev-null.sh/*',
@@ -37,10 +42,16 @@ test('pins the strict extension CSP', async ({ background }) => {
   const csp = (manifest.content_security_policy as { extension_pages?: string } | undefined)?.extension_pages;
 
   expect(csp).toBe(EXTENSION_PAGES_CSP);
-  expect(csp).not.toMatch(/unsafe|\*|data:|blob:|http/);
+  expect(csp).not.toMatch(/unsafe|\*|data:|blob:|http:/);
+
+  // Network access is the AI providers' API origins and nothing else, and only dev-null.sh may frame our pages.
+  const connect = /connect-src ([^;]+)/.exec(csp ?? '')?.[1]?.split(' ');
+
+  expect(connect?.sort()).toEqual([...AI_PROVIDER_ORIGINS].sort());
+  expect(csp).toContain('frame-ancestors https://dev-null.sh;');
 });
 
-test('the service worker cannot make network requests', async ({ background }) => {
+test('the service worker cannot reach anything but the AI providers', async ({ background }) => {
   const result = await background.evaluate(() =>
     fetch('https://example.com/').then(
       () => 'reached the network',

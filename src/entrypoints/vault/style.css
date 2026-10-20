@@ -1,0 +1,234 @@
+/*
+ * The key-entry frame, shown inside the /dev/null++ settings page. It is an extension page, so dev-null.sh's styles
+ * and theme tokens cannot reach it; these mirror the site's tokens (resources/css/app.css) so it looks the same. The
+ * settings page passes the current theme in the URL.
+ */
+
+:root {
+  --background: #f6f7f8;
+  --foreground: #121417;
+  --card: #fff;
+  --muted-foreground: #5b616b;
+  --accent: #eef0f2;
+  --border: #e1e4e8;
+  --input: #d3d7dd;
+  --primary: #3b6fe0;
+  --primary-hover: #2e5ccb;
+  --primary-foreground: #fff;
+  --ring: #3b6fe0;
+  --destructive: #c92a2a;
+  --success: #2f9e44;
+  --radius: 0.5rem;
+
+  color-scheme: light;
+}
+
+:root.dark {
+  --background: #111112;
+  --foreground: #ececec;
+  --card: #18181a;
+  --muted-foreground: #a1a1a6;
+  --accent: #232326;
+  --border: #2a2a2d;
+  --input: #36363a;
+  --primary: #7aa2f7;
+  --primary-hover: #94b5f9;
+  --primary-foreground: #111112;
+  --ring: #7aa2f7;
+  --destructive: #ff8787;
+  --success: #51cf66;
+
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--card);
+  color: var(--foreground);
+  font-family: 'Geist Sans', ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  -webkit-font-smoothing: antialiased;
+}
+
+main {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 6.5rem minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: center;
+  min-height: 3rem;
+  padding: 0.5rem 1rem;
+}
+
+.row + .row {
+  border-top: 1px solid var(--border);
+}
+
+.label {
+  color: var(--muted-foreground);
+  font-family: 'Geist Mono', ui-monospace, monospace;
+  font-size: 13px;
+}
+
+.field {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+input,
+select {
+  min-width: 0;
+  height: 2rem;
+  flex: 1;
+  padding: 0 0.625rem;
+  border: 1px solid var(--input);
+  border-radius: calc(var(--radius) - 2px);
+  background: var(--card);
+  color: inherit;
+  font: inherit;
+  outline: none;
+  transition:
+    box-shadow 150ms,
+    border-color 150ms;
+}
+
+input {
+  font-family: 'Geist Mono', ui-monospace, monospace;
+  font-size: 13px;
+}
+
+input:focus-visible,
+select:focus-visible,
+button:focus-visible,
+a:focus-visible {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 50%, transparent);
+}
+
+select:disabled,
+input:disabled {
+  opacity: 0.6;
+}
+
+button {
+  display: inline-flex;
+  height: 2rem;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0 0.75rem;
+  border: 0;
+  border-radius: calc(var(--radius) - 2px);
+  font: inherit;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  outline: none;
+  transition:
+    background 150ms,
+    color 150ms;
+}
+
+button:disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.primary {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.primary:hover {
+  background: var(--primary-hover);
+}
+
+.ghost {
+  background: transparent;
+  color: var(--muted-foreground);
+}
+
+.ghost:hover {
+  background: var(--accent);
+  color: var(--foreground);
+}
+
+.note {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+.note.error {
+  color: var(--destructive);
+}
+
+a {
+  border-radius: 2px;
+  color: var(--primary);
+  text-decoration: none;
+  outline: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  flex: none;
+  border-radius: 999px;
+  background: var(--success);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 25%, transparent);
+}
+
+.mono {
+  font-family: 'Geist Mono', ui-monospace, monospace;
+  font-size: 13px;
+}
+
+.spinner {
+  width: 0.875rem;
+  height: 0.875rem;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 999px;
+  animation: spin 700ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 2s;
+  }
+}

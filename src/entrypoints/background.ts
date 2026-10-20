@@ -1,7 +1,12 @@
+import { complete } from '@/background/providers';
+import { RateLimiter, rewrite } from '@/background/rewrite';
+import { readAiCredential } from '@/background/vault';
+import type { RewriteResult } from '@/core/ai';
 import { isSiteUrl, SITE_MATCHES, SITE_ORIGIN } from '@/core/constants';
 import { createLogger } from '@/core/logger';
-import type { ContentMessage } from '@/core/messages';
+import { isBackgroundMessage, isFromSiteContentScript, type ContentMessage } from '@/core/messages';
 import { SETTINGS_HASH } from '@/core/route';
+import { readSettings } from '@/core/settings';
 
 const logger = createLogger('background');
 
@@ -39,7 +44,40 @@ async function injectIntoOpenTabs(): Promise<void> {
   );
 }
 
+/** At most this many rewrites a minute, whatever asks for them. */
+const rewriteLimiter = new RateLimiter(10, 60_000);
+
+/**
+ * Handles messages from our content script. Anything not from our own content script in the top frame of a
+ * dev-null.sh tab, or not exactly the shape we expect, is dropped without a reply.
+ */
+function onMessage(
+  message: unknown,
+  sender: Browser.runtime.MessageSender,
+  sendResponse: (response: RewriteResult) => void,
+): boolean {
+  if (!isFromSiteContentScript(sender, browser.runtime.id) || !isBackgroundMessage(message)) {
+    return false;
+  }
+
+  void rewrite(
+    { text: message.text, mode: message.mode, maxLength: message.maxLength },
+    { readSettings, readCredential: readAiCredential, complete, limiter: rewriteLimiter },
+  )
+    .catch((error: unknown) => {
+      logger.error('Rewrite failed.', error);
+
+      return { ok: false, error: 'provider' } as const;
+    })
+    .then(sendResponse);
+
+  // Keeps the channel open for the asynchronous reply.
+  return true;
+}
+
 export default defineBackground(() => {
+  browser.runtime.onMessage.addListener(onMessage);
+
   browser.runtime.onInstalled.addListener(({ reason }) => {
     if (reason === 'install' || reason === 'update') {
       void injectIntoOpenTabs();

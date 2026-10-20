@@ -47,6 +47,41 @@ export function observeAttributes(
   );
 }
 
+type Child = Node | string | null | undefined | false;
+
+interface ElementOptions {
+  className?: string;
+  attrs?: Record<string, string>;
+}
+
+/**
+ * Builds an element from a tag, options and children, so UI code reads like markup without ever parsing HTML. Strings
+ * become text nodes; `null`, `undefined` and `false` children are skipped, for conditional content.
+ */
+export function el<K extends keyof HTMLElementTagNameMap>(
+  tag: K,
+  { className, attrs = {} }: ElementOptions = {},
+  children: readonly Child[] = [],
+): HTMLElementTagNameMap[K] {
+  const element = document.createElement(tag);
+
+  if (className !== undefined) {
+    element.className = className;
+  }
+
+  for (const [name, value] of Object.entries(attrs)) {
+    element.setAttribute(name, value);
+  }
+
+  for (const child of children) {
+    if (child !== null && child !== undefined && child !== false) {
+      element.append(child);
+    }
+  }
+
+  return element;
+}
+
 /** Marks an element as ours. See {@link OWNED_ATTRIBUTE}. */
 export function markOwned(element: Element, role: string): void {
   element.setAttribute(OWNED_ATTRIBUTE, role);

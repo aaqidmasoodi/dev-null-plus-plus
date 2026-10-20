@@ -1,0 +1,198 @@
+/*
+ * The rewrite panel in the composer. It opens where the site's schedule panel opens and copies its look
+ * (`rounded-lg border bg-muted/30 p-3` in components/commit-composer.tsx). It lives in a shadow root, so it reads the
+ * site's theme tokens, which inherit into it, and is untouched by the site's own styles.
+ */
+
+:host {
+  display: block;
+  margin-top: 0.75rem;
+  color: var(--foreground, CanvasText);
+}
+
+:host([data-compact]) {
+  margin-top: 0.5rem;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+.panel {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border, GrayText);
+  border-radius: var(--radius, 0.5rem);
+  background: color-mix(in srgb, var(--muted, transparent) 30%, transparent);
+  animation: enter 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+:host([data-compact]) .panel {
+  padding: 0.625rem;
+}
+
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+}
+
+.head {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.title {
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.25rem;
+}
+
+.meta {
+  overflow: hidden;
+  color: var(--muted-foreground, GrayText);
+  font-family: var(--font-geist-mono, ui-monospace, monospace);
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+/* Like the site's `Button variant="outline" size="sm"`. */
+.option {
+  display: inline-flex;
+  height: 2rem;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0 0.75rem;
+  border: 1px solid var(--input, GrayText);
+  border-radius: calc(var(--radius, 0.5rem) - 2px);
+  background: var(--background, Canvas);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+  color: inherit;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background 150ms,
+    color 150ms,
+    opacity 150ms;
+}
+
+.option:hover {
+  background: var(--accent, transparent);
+}
+
+.option:focus-visible,
+.link:focus-visible {
+  outline: 2px solid var(--ring, Highlight);
+  outline-offset: 2px;
+}
+
+.option:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.option[aria-busy='true'] {
+  border-color: var(--primary, LinkText);
+  color: var(--primary, LinkText);
+  opacity: 1;
+}
+
+.spinner {
+  width: 0.75rem;
+  height: 0.75rem;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 999px;
+  animation: spin 700ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+.status {
+  display: flex;
+  min-height: 1rem;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+  margin: 0;
+  color: var(--muted-foreground, GrayText);
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+.status.error {
+  color: var(--destructive-foreground, #c92a2a);
+}
+
+.status.busy {
+  /* A soft shimmer across the words while the model works. */
+  background: linear-gradient(
+      90deg,
+      var(--muted-foreground, GrayText) 0%,
+      var(--foreground, CanvasText) 50%,
+      var(--muted-foreground, GrayText) 100%
+    )
+    0 0 / 200% 100%;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 1.4s linear infinite;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+
+  to {
+    background-position: -100% 0;
+  }
+}
+
+.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--primary, LinkText);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel,
+  .spinner,
+  .status.busy {
+    animation: none;
+  }
+
+  .status.busy {
+    color: var(--muted-foreground, GrayText);
+    background: none;
+  }
+}
