@@ -2,6 +2,7 @@ import { createSvgIcon, el, markOwned, ownedSelector } from '@/core/dom';
 import { CLOSE_ICON } from '@/core/icons';
 import { largerAvatar } from '@/site/images';
 import {
+  isLoadingSuggestions,
   moreSuggestionsButton,
   readSuggestions,
   suggestionList,
@@ -100,6 +101,8 @@ class Deck {
    * suggest is not asked over and over, only each time someone is swiped away.
    */
   askedAtSwipe = 0;
+  /** Whether the first nudge is on its way. Set once people first show, not while the stack is still loading. */
+  isNudgeScheduled = false;
 
   constructor() {
     this.host = el('div');
@@ -150,6 +153,39 @@ class Deck {
     }
   }
 
+  /**
+   * While the site loads the people, a stack of the same size in the site's skeleton style, so nothing moves when the
+   * people arrive, and nothing shows the rows the cards replace.
+   */
+  showLoading(): void {
+    this.#people = [];
+    this.#order = [];
+
+    if (this.#drawn === 'loading') {
+      return;
+    }
+
+    this.#drawn = 'loading';
+    this.#top = null;
+    this.#stage.setAttribute('aria-busy', 'true');
+    this.#stage.replaceChildren(...[2, 1, 0].map((depth) => this.#skeleton(depth)));
+  }
+
+  #skeleton(depth: number): HTMLElement {
+    const bone = (className: string): HTMLElement => el('span', { className: `bone ${className}` });
+
+    return el('div', { className: 'card skeleton', attrs: { 'data-depth': String(depth), 'aria-hidden': 'true' } }, [
+      el('div', { className: 'picture bone' }),
+      el('div', { className: 'info' }, [
+        el('span', { className: 'name' }, [bone('for-name')]),
+        el('span', { className: 'username' }, [bone('for-username')]),
+        el('span', { className: 'bio' }, [bone('for-bio'), bone('for-bio-end')]),
+        el('span', { className: 'reason' }, [bone('for-reason')]),
+        el('span', { className: 'actions' }, [bone('for-dismiss'), bone('for-follow')]),
+      ]),
+    ]);
+  }
+
   /** Draws the stack, only when something about it changed, so a re-render of the site's rows costs nothing. */
   #draw(): void {
     const shown = this.#people.slice(0, STACK);
@@ -171,6 +207,7 @@ class Deck {
     const previousTop = this.#top;
 
     this.#drawn = drawn;
+    this.#stage.removeAttribute('aria-busy');
     this.#top = shown[0]?.username ?? null;
     this.#stage.replaceChildren(...shown.map((person, depth) => this.#card(person, depth)).reverse());
 
@@ -416,7 +453,7 @@ class Deck {
    * show, nobody is touching them, and nobody has swiped yet.
    */
   nudge(): void {
-    const top = this.#topCard();
+    const top = this.#people.length === 0 ? null : this.#topCard();
     const next = this.#stage.querySelector<HTMLElement>('.card[data-depth="1"]');
     const shown = this.host.getBoundingClientRect();
 
@@ -454,6 +491,7 @@ class Deck {
     const top = this.#topCard();
 
     if (
+      this.#people.length === 0 ||
       event.button !== 0 ||
       !event.isPrimary ||
       this.#isMoving ||
@@ -620,10 +658,11 @@ export class WhoToFollowCards {
     for (const section of sections) {
       const list = suggestionList(section);
       const people = list === null ? [] : readSuggestions(list);
+      const isLoading = list !== null && people.length === 0 && isLoadingSuggestions(list);
       let deck = this.#decks.get(section);
 
-      if (list === null || people.length === 0) {
-        // Still loading, emptied, or hidden: the site says so in its own words.
+      if (list === null || (people.length === 0 && !isLoading)) {
+        // Emptied, or hidden: the site says so in its own words.
         deck?.host.remove();
 
         continue;
@@ -634,9 +673,6 @@ export class WhoToFollowCards {
 
         deck = created;
         this.#decks.set(section, deck);
-        window.setTimeout(() => {
-          created.nudge();
-        }, this.#firstNudge);
         this.#observer.observe(section, {
           subtree: true,
           childList: true,
@@ -649,8 +685,23 @@ export class WhoToFollowCards {
         list.after(deck.host);
       }
 
+      if (isLoading) {
+        deck.showLoading();
+
+        continue;
+      }
+
       deck.update(people);
       this.#askForMore(section, deck);
+
+      if (!deck.isNudgeScheduled) {
+        const shown = deck;
+
+        shown.isNudgeScheduled = true;
+        window.setTimeout(() => {
+          shown.nudge();
+        }, this.#firstNudge);
+      }
     }
 
     if (this.#decks.size > 0 && document.head.querySelector(ownedSelector(STYLE_ROLE)) === null) {

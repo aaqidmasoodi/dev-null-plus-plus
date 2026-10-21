@@ -342,3 +342,13 @@ export function actLikeTheSite(
 
   return seen;
 }
+
+/** The aside's "Who to follow" block while its people load: the site's placeholder rows (SuggestedUsersSkeleton). */
+export function whoToFollowLoadingHtml(): string {
+  const row = `<li aria-hidden="true"><div class="flex items-center gap-3"><div data-slot="skeleton" class="size-9 shrink-0 rounded-full bg-primary/10 animate-pulse"></div><span class="flex-1"><div data-slot="skeleton" class="my-[3px] h-3.5 w-28 bg-primary/10 animate-pulse"></div></span></div></li>`;
+
+  return `<section aria-labelledby="aside-who-to-follow" class="-mt-4 border-t pt-4">
+    <div class="mb-3 flex items-center justify-between gap-2"><h2 id="aside-who-to-follow" class="text-sm font-semibold">Who to follow</h2></div>
+    <ul class="space-y-4">${row}${row}${row}</ul>
+  </section>`;
+}

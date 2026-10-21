@@ -240,7 +240,78 @@ button:focus-visible,
   outline-offset: 1px;
 }
 
+/* Loading: the card's shape in the site's skeleton style (components/ui/skeleton.tsx), at exactly the card's size. */
+.skeleton {
+  cursor: default;
+}
+
+.bone {
+  display: block;
+  border-radius: calc(var(--radius, 0.5rem) - 2px);
+  background: color-mix(in srgb, var(--primary, GrayText) 10%, transparent);
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.picture.bone {
+  border-radius: 0;
+}
+
+.skeleton .bio {
+  display: block;
+}
+
+.for-name {
+  width: 55%;
+  height: 1rem;
+  margin-top: 0.25rem;
+}
+
+.for-username {
+  width: 35%;
+  height: 0.75rem;
+}
+
+.for-bio,
+.for-bio-end,
+.for-reason {
+  height: 0.75rem;
+}
+
+.for-bio {
+  width: 90%;
+  margin-top: 0.125rem;
+}
+
+.for-bio-end {
+  width: 60%;
+  margin-top: 0.25rem;
+}
+
+.for-reason {
+  width: 45%;
+}
+
+.for-dismiss {
+  width: 2.25rem;
+  height: 2.25rem;
+}
+
+.for-follow {
+  flex: 1;
+  height: 2.25rem;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .bone {
+    animation: none;
+  }
+
   .card,
   .picture .sharp {
     transition: none;

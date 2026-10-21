@@ -101,6 +101,13 @@ function readRow(row: HTMLLIElement): Suggestion | null {
   };
 }
 
+/** Whether a block is still loading: its list holds only the site's placeholder rows, hidden from screen readers. */
+export function isLoadingSuggestions(list: HTMLUListElement): boolean {
+  const rows = [...list.children];
+
+  return rows.length > 0 && rows.every((row) => row.hasAttribute('aria-hidden'));
+}
+
 /**
  * The people a block suggests right now, in order. Rows still loading are placeholders, and rows on their way out after
  * "Not interested" are inert while they fold away: neither counts.

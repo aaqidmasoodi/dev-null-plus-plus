@@ -5,7 +5,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { WhoToFollowCards } from '@/features/who-to-follow/cards';
 import { readSuggestions, suggestionList } from '@/site/who-to-follow';
 
-import { actLikeTheSite, FIXTURE_PEOPLE, suggestedRowHtml, whoToFollowHtml } from './fixtures/site';
+import {
+  actLikeTheSite,
+  FIXTURE_PEOPLE,
+  suggestedRowHtml,
+  whoToFollowHtml,
+  whoToFollowLoadingHtml,
+} from './fixtures/site';
 
 const section = (): HTMLElement => {
   const found = document.querySelector<HTMLElement>('section[aria-labelledby="aside-who-to-follow"]');
@@ -259,5 +265,36 @@ describe('an endless stack', () => {
 
     swipe();
     expect(site.refreshes).toBe(2);
+  });
+});
+
+describe('while the people load', () => {
+  let controller: AbortController;
+
+  afterEach(() => {
+    controller.abort();
+    document.body.innerHTML = '';
+  });
+
+  it('shows the cards’ own skeleton in place of the site’s rows, then the cards', () => {
+    document.body.innerHTML = whoToFollowLoadingHtml();
+    controller = new AbortController();
+
+    const cards = new WhoToFollowCards({ enabled: () => true, signal: controller.signal });
+    const deck = (): ShadowRoot | null | undefined => document.querySelector('[data-dnpp="who-to-follow"]')?.shadowRoot;
+
+    cards.ensure();
+
+    // Right after the site's list, which the style hides, as it does the rows.
+    expect(list().nextElementSibling?.getAttribute('data-dnpp')).toBe('who-to-follow');
+    expect(deck()?.querySelectorAll('.card.skeleton')).toHaveLength(3);
+    expect(deck()?.querySelector('.stage')?.getAttribute('aria-busy')).toBe('true');
+
+    list().innerHTML = FIXTURE_PEOPLE.slice(0, 3).map(suggestedRowHtml).join('');
+    cards.ensure();
+
+    expect(deck()?.querySelectorAll('.card.skeleton')).toHaveLength(0);
+    expect(deck()?.querySelector('.card[data-depth="0"]')?.getAttribute('aria-label')).toBe('Ada Park, @adapark');
+    expect(deck()?.querySelector('.stage')?.hasAttribute('aria-busy')).toBe(false);
   });
 });
