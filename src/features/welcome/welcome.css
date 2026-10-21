@@ -15,20 +15,20 @@
 }
 
 dialog {
-  width: min(26rem, calc(100vw - 2rem));
+  width: min(44rem, calc(100vw - 2rem));
   max-width: none;
   max-height: calc(100dvh - 2rem);
   margin: auto;
   padding: 0;
-  overflow: auto;
+  overflow: hidden auto;
   border: 1px solid var(--border, GrayText);
   border-radius: calc(var(--radius, 0.5rem) * 1.5);
   background: var(--popover, Canvas);
   box-shadow: 0 32px 80px -24px rgb(0 0 0 / 0.55);
   color: var(--popover-foreground, CanvasText);
   font-family: var(--font-geist, ui-sans-serif, system-ui, sans-serif);
-  font-size: 0.875rem;
-  line-height: 1.25rem;
+  font-size: 1rem;
+  line-height: 1.5rem;
 }
 
 dialog:focus {
@@ -43,15 +43,19 @@ dialog::backdrop {
   position: relative;
 }
 
+.content {
+  overflow: clip;
+}
+
 /* The ✕, top right, over the picture. */
 .close {
   position: absolute;
   z-index: 1;
-  top: 0.75rem;
-  right: 0.75rem;
+  top: 1rem;
+  right: 1rem;
   display: grid;
-  width: 2rem;
-  height: 2rem;
+  width: 2.25rem;
+  height: 2.25rem;
   place-items: center;
   padding: 0;
   border: 0;
@@ -67,16 +71,20 @@ dialog::backdrop {
 }
 
 .close svg {
-  width: 1rem;
-  height: 1rem;
+  width: 1.25rem;
+  height: 1.25rem;
 }
 
-/* The picture: where each feature will later show itself in motion. For now, its icon in its lane's colour. */
+/*
+ * The picture: where each feature will later show itself in motion, in a GIF or video's own 16:9. For now, its icon in
+ * its lane's colour. On a short screen it gives up height first, so the text and buttons always fit.
+ */
 .picture {
   --tint: var(--lane-0, #d9480f);
 
   display: grid;
-  height: 10.5rem;
+  aspect-ratio: 16 / 9;
+  max-height: calc(100dvh - 16rem);
   place-items: center;
   border-bottom: 1px solid var(--border, GrayText);
   background:
@@ -92,42 +100,42 @@ dialog::backdrop {
 }
 
 .logo {
-  width: 5rem;
-  height: 5rem;
+  width: 8rem;
+  height: 8rem;
   color: var(--foreground, CanvasText);
 }
 
 .badge {
   display: grid;
-  width: 4rem;
-  height: 4rem;
+  width: 6rem;
+  height: 6rem;
   place-items: center;
   border: 1px solid color-mix(in srgb, var(--tint) 30%, transparent);
-  border-radius: 1rem;
+  border-radius: 1.5rem;
   background: color-mix(in srgb, var(--tint) 14%, var(--popover, Canvas));
   color: var(--tint);
 }
 
 .badge svg {
-  width: 1.75rem;
-  height: 1.75rem;
+  width: 2.75rem;
+  height: 2.75rem;
 }
 
 .text {
-  padding: 1.25rem 1.5rem 0;
+  padding: 1.5rem 2rem 0;
 }
 
 h2 {
   margin: 0;
-  font-size: 1.125rem;
+  font-size: 1.5rem;
   font-weight: 600;
   letter-spacing: -0.025em;
-  line-height: 1.75rem;
+  line-height: 2rem;
 }
 
 p {
-  min-height: 2.5rem;
-  margin: 0.25rem 0 0;
+  min-height: 3rem;
+  margin: 0.375rem 0 0;
   color: var(--muted-foreground, GrayText);
   text-wrap: pretty;
 }
@@ -137,7 +145,7 @@ p {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 1.25rem 1.5rem 1.5rem;
+  padding: 1.5rem 2rem 2rem;
 }
 
 /* How far along: one dot per step, the current one stretched. */
@@ -147,8 +155,8 @@ p {
 }
 
 .dot {
-  width: 0.375rem;
-  height: 0.375rem;
+  width: 0.5rem;
+  height: 0.5rem;
   padding: 0;
   border: 0;
   border-radius: 999px;
@@ -160,7 +168,7 @@ p {
 }
 
 .dot[aria-current='step'] {
-  width: 1.125rem;
+  width: 1.5rem;
   background: var(--foreground, CanvasText);
 }
 
@@ -171,11 +179,11 @@ p {
 
 .actions button {
   display: inline-flex;
-  height: 2.25rem;
+  height: 2.5rem;
   align-items: center;
   justify-content: center;
   gap: 0.25rem;
-  padding: 0 1rem;
+  padding: 0 1.25rem;
   border: 1px solid transparent;
   border-radius: calc(var(--radius, 0.5rem) - 2px);
   font: inherit;
@@ -224,5 +232,36 @@ button:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   .dot {
     transition: none;
+  }
+}
+
+/* On a phone: closer edges, so the words keep their room. */
+@media (max-width: 30rem) {
+  .text {
+    padding: 1.25rem 1.25rem 0;
+  }
+
+  /* The dots on a line of their own, over buttons that share the width. */
+  .footer {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 1.25rem;
+  }
+
+  .dots {
+    justify-content: center;
+  }
+
+  .actions button {
+    flex: 1;
+  }
+
+  h2 {
+    font-size: 1.25rem;
+    line-height: 1.75rem;
+  }
+
+  .actions button {
+    padding: 0 1rem;
   }
 }

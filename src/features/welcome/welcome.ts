@@ -278,10 +278,13 @@ export class Welcome {
     this.#step = step;
     this.#render();
 
-    const content = this.#dialog?.querySelector('.content');
+    if (prefersReducedMotion()) {
+      return;
+    }
 
-    if (content !== null && content !== undefined && !prefersReducedMotion()) {
-      content.animate([{ opacity: 0, transform: `translateX(${String(direction * 16)}px)` }, { opacity: 1 }], {
+    // What is in the step slides, inside a box that stays put and clips it, so the dialog never grows sideways.
+    for (const part of this.#dialog?.querySelectorAll('.content > *') ?? []) {
+      part.animate([{ opacity: 0, transform: `translateX(${String(direction * 16)}px)` }, { opacity: 1 }], {
         duration: 220,
         easing: 'cubic-bezier(0.2, 0, 0, 1)',
       });
