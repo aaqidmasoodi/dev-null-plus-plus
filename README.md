@@ -36,40 +36,40 @@ Every feature can be switched off on the settings page.
 
 ## Install
 
-dev/null++ works in Chrome (and Chromium browsers like Edge, Brave and Arc) and in Firefox 140 or newer.
+Works in Chrome, Edge, Brave and other Chromium browsers, and in Firefox 140 or newer. Get the files from the
+[latest release](https://github.com/aaqidmasoodi/dev-null-plus-plus/releases/latest).
 
-### Chrome
+### Chrome, Edge, Brave
 
-```sh
-npm install
-npm run build
-```
+1. Download `dev-null-plus-plus-…-chrome.zip` and unzip it.
+2. Open `chrome://extensions` and turn on **Developer mode** (top right).
+3. Click **Load unpacked** and pick the unzipped folder.
+4. Open [dev-null.sh](https://dev-null.sh). That's it.
 
-1. Open `chrome://extensions` and turn on **Developer mode**.
-2. Click **Load unpacked** and pick `.output/chrome-mv3`.
-3. Open [dev-null.sh](https://dev-null.sh). Tabs that are already open pick the extension up without a reload.
+Keep the folder: Chrome loads the extension from it.
 
 ### Firefox
 
-Firefox only keeps add-ons that Mozilla has signed. Signed builds (`.xpi`) are attached to each
-[GitHub release](https://github.com/aaqidmasoodi/dev-null-plus-plus/releases): open one in Firefox, or drag it into a
-Firefox window, and click **Add**.
+If the release has a `.xpi` file:
 
-To try a build of your own, load it in Firefox's debugging mode. It stays until Firefox is closed:
+1. Download `dev-null-plus-plus-…-firefox.xpi`.
+2. Drag it into a Firefox window and click **Add**.
+
+Otherwise, use Firefox's debugging mode. The extension stays until you close Firefox.
+
+1. Download `dev-null-plus-plus-…-firefox.zip`. Don't unzip it.
+2. Open `about:debugging#/runtime/this-firefox`.
+3. Click **Load Temporary Add-on…** and pick the zip.
+
+Then open [dev-null.sh](https://dev-null.sh). If the toolbar icon shows **!**, click it and allow access to the site.
+
+### From source
 
 ```sh
 npm install
-npm run build:firefox
+npm run build          # Chrome: load .output/chrome-mv3 as above
+npm run build:firefox  # Firefox: load .output/firefox-mv3/manifest.json as above
 ```
-
-1. Open `about:debugging#/runtime/this-firefox`.
-2. Click **Load Temporary Add-on…** and pick `.output/firefox-mv3/manifest.json`.
-3. Open [dev-null.sh](https://dev-null.sh). If the toolbar icon shows **!**, Firefox has not given it access to the
-   site: click the icon and allow it.
-
-Firefox asks before an add-on sends any of your data anywhere. dev/null++ sends nothing by itself, so it asks for
-nothing at install. If you connect an AI provider, Firefox asks once whether your drafts may be sent to it when you ask
-for a rewrite.
 
 ### Working on it
 
