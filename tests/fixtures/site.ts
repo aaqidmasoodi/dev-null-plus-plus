@@ -270,24 +270,42 @@ export function suggestedRowHtml(person: FixturePerson): string {
 /** The aside's "Who to follow" block, signed in, with three people shown. */
 export function whoToFollowHtml(people: FixturePerson[] = FIXTURE_PEOPLE.slice(0, 3)): string {
   return `<section aria-labelledby="aside-who-to-follow" class="-mt-4 border-t pt-4">
-    <div class="mb-3 flex items-center justify-between gap-2"><h2 id="aside-who-to-follow" class="text-sm font-semibold">Who to follow</h2></div>
+    <div class="mb-3 flex items-center justify-between gap-2"><h2 id="aside-who-to-follow" class="text-sm font-semibold">Who to follow</h2>
+      <div class="flex items-center gap-1"><button type="button" data-test="who-to-follow-refresh" aria-label="Suggest other people" title="Suggest other people"><svg></svg></button></div>
+    </div>
     <ul class="space-y-4">${people.map(suggestedRowHtml).join('')}</ul>
   </section>`;
 }
 
 /**
- * Stands in for the site's handlers: following flips the button's label once the server would have answered, and
- * "Not interested" swaps the next spare into the dismissed person's place. Counts each, as the server would see them.
+ * Stands in for the site's handlers: following flips the button's label once the server would have answered,
+ * "Not interested" swaps the next spare into the dismissed person's place, and "Suggest other people" puts the next
+ * page of people in place of the list. Counts each, as the server would see them.
  */
 export function actLikeTheSite(
   spares: FixturePerson[],
   signal: AbortSignal,
-): { follows: string[]; dismissals: string[] } {
-  const seen = { follows: [] as string[], dismissals: [] as string[] };
+  pages: FixturePerson[][] = [],
+): { follows: string[]; dismissals: string[]; refreshes: number } {
+  const seen = { follows: [] as string[], dismissals: [] as string[], refreshes: 0 };
 
   document.addEventListener(
     'click',
     (event) => {
+      // "Suggest other people": the next page of people, in place of the list.
+      if ((event.target as Element).closest('[data-test="who-to-follow-refresh"]') !== null) {
+        seen.refreshes++;
+
+        const page = pages.shift();
+        const list = document.querySelector('section[aria-labelledby="aside-who-to-follow"] ul');
+
+        if (page !== undefined && list !== null) {
+          list.innerHTML = page.map(suggestedRowHtml).join('');
+        }
+
+        return;
+      }
+
       const button = (event.target as Element).closest<HTMLElement>('[data-test^="suggested-"]');
       const row = button?.closest('li');
 

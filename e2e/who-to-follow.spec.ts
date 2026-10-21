@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 
-import { FIXTURE_PEOPLE, suggestedRowHtml, whoToFollowHtml } from '../tests/fixtures/site';
+import { FIXTURE_PEOPLE, suggestedRowHtml, whoToFollowHtml, type FixturePerson } from '../tests/fixtures/site';
 
 import { expect, SITE, test } from './fixtures';
 
@@ -12,7 +12,8 @@ import { expect, SITE, test } from './fixtures';
 
 const COLOURS = ['#d9480f', '#2f9e44', '#9c36b5', '#0c8599', '#c2255c'];
 
-async function addWhoToFollow(page: Page): Promise<void> {
+/** Puts the block in the aside. With `nextPage`, "Suggest other people" brings those people, once. */
+async function addWhoToFollow(page: Page, nextPage: FixturePerson[] = []): Promise<void> {
   await page.context().route('https://avatars.githubusercontent.com/u/**', (route) => {
     const url = new URL(route.request().url());
     const name = url.searchParams.get('u') ?? '?';
@@ -26,16 +27,32 @@ async function addWhoToFollow(page: Page): Promise<void> {
   await page.goto(SITE);
   await page.locator('[data-dnpp="nav-item"]').waitFor();
   await page.evaluate(
-    ({ block, spare }) => {
+    ({ block, spare, next }) => {
       const seen = { follows: [] as string[], dismissals: [] as string[] };
       const spares = [spare];
+      const pages = next === '' ? [] : [next];
+      const counts = { refreshes: 0 };
       // Where the site puts it: after the aside's first block, before its footer links.
       const first = [...document.querySelectorAll('aside > section')].find((element) => element.clientWidth > 0);
 
-      (window as unknown as { seen: typeof seen }).seen = seen;
+      Object.assign(window, { seen, counts });
       first?.insertAdjacentHTML('afterend', block);
       // Like the site: following flips the button once the server answers; "Not interested" brings in a spare.
       document.addEventListener('click', (event) => {
+        // "Suggest other people": the next page of people in place of the list, if there is one.
+        if ((event.target as Element).closest('[data-test="who-to-follow-refresh"]') !== null) {
+          counts.refreshes++;
+
+          const list = document.querySelector('section[aria-labelledby="aside-who-to-follow"] ul');
+          const page = pages.shift();
+
+          if (list !== null && page !== undefined) {
+            list.innerHTML = page;
+          }
+
+          return;
+        }
+
         const button = (event.target as Element).closest<HTMLElement>('[data-test^="suggested-"]');
         const username = /@([\w-]+)/.exec(button?.getAttribute('aria-label') ?? '')?.[1] ?? '';
 
@@ -52,7 +69,11 @@ async function addWhoToFollow(page: Page): Promise<void> {
         }
       });
     },
-    { block: whoToFollowHtml(), spare: suggestedRowHtml(FIXTURE_PEOPLE[3] ?? { username: 'x', name: 'X' }) },
+    {
+      block: whoToFollowHtml(),
+      spare: suggestedRowHtml(FIXTURE_PEOPLE[3] ?? { username: 'x', name: 'X' }),
+      next: nextPage.map(suggestedRowHtml).join(''),
+    },
   );
 }
 
@@ -194,5 +215,36 @@ test('the next card rises with the drag, buttons and all, and sinks back if the 
   await page.mouse.up();
   await expect.poll(scale).toBeCloseTo(0.95);
   await expect(top(page)).toHaveAttribute('aria-label', 'Ada Park, @adapark');
+  expect(await seen(page)).toEqual({ follows: [], dismissals: [] });
+});
+
+const refreshes = (page: Page) =>
+  page.evaluate(() => (window as unknown as { counts: { refreshes: number } }).counts.refreshes);
+
+test('swiping never runs out: once it runs low, the site’s next people come', async ({ page }) => {
+  await addWhoToFollow(page, [
+    { username: 'priya', name: 'Priya Nair', bio: 'databases and dry humour', lane: 2 },
+    { username: 'jonas', name: 'Jonas Berg', reason: '40 followers', lane: 3 },
+    { username: 'lena', name: 'Lena Fischer', lane: 5 },
+  ]);
+  await expect.poll(() => stack(page)).toEqual(['Ada Park', 'Tomás Reyes', 'Minji Kim']);
+
+  // The one spare takes the first place; after that, the stack is low, and the site is asked for its next people.
+  await swipe(page, -200);
+  await expect.poll(() => stack(page)).toEqual(['Tomás Reyes', 'Minji Kim', 'Olu Adeyemi']);
+  expect(await refreshes(page)).toBe(0);
+
+  await swipe(page, -200);
+  await expect.poll(() => stack(page)).toEqual(['Priya Nair', 'Jonas Berg', 'Lena Fischer']);
+  expect(await refreshes(page)).toBe(1);
+});
+
+test('nudges a moment after it shows, so it is plain the cards can be swiped', async ({ page }) => {
+  await addWhoToFollow(page);
+  await expect.poll(() => stack(page)).toEqual(['Ada Park', 'Tomás Reyes', 'Minji Kim']);
+
+  await expect
+    .poll(() => top(page).evaluate((card) => card.getAnimations().length), { timeout: 8_000 })
+    .toBeGreaterThan(0);
   expect(await seen(page)).toEqual({ follows: [], dismissals: [] });
 });

@@ -188,3 +188,76 @@ describe('the cards', () => {
     expect(document.head.querySelector('[data-dnpp="who-to-follow-style"]')).toBeNull();
   });
 });
+
+describe('an endless stack', () => {
+  let controller: AbortController;
+  let cards: WhoToFollowCards;
+
+  const nextPage = [
+    { username: 'priya', name: 'Priya Nair' },
+    { username: 'jonas', name: 'Jonas Berg' },
+    { username: 'lena', name: 'Lena Fischer' },
+  ];
+  const deck = (): ShadowRoot | null | undefined => document.querySelector('[data-dnpp="who-to-follow"]')?.shadowRoot;
+  const top = (): string | undefined =>
+    deck()?.querySelector('.card[data-depth="0"]')?.getAttribute('aria-label')?.split(',')[0];
+  const swipe = (): void => {
+    deck()?.host.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+    cards.ensure();
+  };
+
+  beforeEach(() => {
+    vi.stubGlobal('matchMedia', (query: string) => ({ matches: query.includes('reduce'), media: query }));
+    controller = new AbortController();
+  });
+
+  afterEach(() => {
+    controller.abort();
+    vi.unstubAllGlobals();
+    document.body.innerHTML = '';
+  });
+
+  it('asks the site for the next people once swiping runs it low, with its own button', () => {
+    document.body.innerHTML = whoToFollowHtml();
+
+    // No spares left: each "Not interested" leaves one fewer, until the next page comes.
+    const site = actLikeTheSite([], controller.signal, [nextPage]);
+
+    cards = new WhoToFollowCards({ enabled: () => true, signal: controller.signal });
+    cards.ensure();
+    swipe();
+
+    expect(site.refreshes).toBe(1);
+    cards.ensure();
+    expect(top()).toBe('Priya Nair');
+  });
+
+  it('never asks before anyone has swiped, however few people there are', () => {
+    document.body.innerHTML = whoToFollowHtml(FIXTURE_PEOPLE.slice(0, 2));
+
+    const site = actLikeTheSite([], controller.signal, [nextPage]);
+
+    cards = new WhoToFollowCards({ enabled: () => true, signal: controller.signal });
+    cards.ensure();
+    cards.ensure();
+
+    expect(site.refreshes).toBe(0);
+  });
+
+  it('asks at most once a swipe, so a site with nobody left is not asked over and over', () => {
+    document.body.innerHTML = whoToFollowHtml();
+
+    // Nobody left: the next page never comes.
+    const site = actLikeTheSite([], controller.signal);
+
+    cards = new WhoToFollowCards({ enabled: () => true, signal: controller.signal });
+    cards.ensure();
+    swipe();
+    cards.ensure();
+    cards.ensure();
+    expect(site.refreshes).toBe(1);
+
+    swipe();
+    expect(site.refreshes).toBe(2);
+  });
+});
