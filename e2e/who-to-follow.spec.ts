@@ -98,7 +98,8 @@ test('swiping a card away is "Not interested", and whoever the site brings in jo
   await expect.poll(() => stack(page)).toEqual(['Ada Park', 'Tomás Reyes', 'Minji Kim']);
   // Just the cards: the site's rows are hidden, still there for the cards to act through, and there are no arrows.
   await expect(page.locator('section[aria-labelledby="aside-who-to-follow"] ul')).toBeHidden();
-  await expect(deck(page).getByRole('button')).toHaveCount(2);
+  await expect(top(page).getByRole('button')).toHaveCount(2);
+  await expect(deck(page).getByRole('button', { name: /person/ })).toHaveCount(0);
 
   await swipe(page, -200);
   await expect.poll(() => stack(page)).toEqual(['Tomás Reyes', 'Minji Kim', 'Olu Adeyemi']);
@@ -158,4 +159,40 @@ test('swiping never moves anything around the cards', async ({ page }) => {
   const ends = await page.evaluate(() => (window as unknown as { ends: number[] }).ends);
 
   expect(new Set(ends).size).toBe(1);
+});
+
+test('the next card rises with the drag, buttons and all, and sinks back if the swipe is undone', async ({ page }) => {
+  await addWhoToFollow(page);
+  await expect.poll(() => stack(page)).toEqual(['Ada Park', 'Tomás Reyes', 'Minji Kim']);
+
+  const next = deck(page).locator('.card[data-depth="1"]');
+  const scale = () => next.evaluate((card) => new DOMMatrix(getComputedStyle(card).transform).a);
+  const box = await top(page).locator('.picture').boundingBox();
+
+  if (box === null) {
+    throw new Error('The card is not on screen.');
+  }
+
+  const [x, y] = [box.x + box.width / 2, box.y + box.height / 2];
+
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+
+  for (let step = 1; step <= 10; step++) {
+    await page.mouse.move(x - step * 20, y);
+  }
+
+  // Dragged far enough to go: the next card is all the way up, with its own buttons.
+  expect(await scale()).toBeCloseTo(1);
+  await expect(next.getByRole('button', { includeHidden: true })).toHaveCount(2);
+
+  // Brought back and let go: it sinks back to its place, and nobody is dismissed.
+  for (let step = 9; step >= 0; step--) {
+    await page.mouse.move(x - step * 20, y);
+  }
+
+  await page.mouse.up();
+  await expect.poll(scale).toBeCloseTo(0.95);
+  await expect(top(page)).toHaveAttribute('aria-label', 'Ada Park, @adapark');
+  expect(await seen(page)).toEqual({ follows: [], dismissals: [] });
 });

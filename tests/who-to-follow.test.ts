@@ -91,7 +91,7 @@ describe('the cards', () => {
   const top = (): string | null | undefined =>
     deck()?.querySelector('.card[data-depth="0"]')?.getAttribute('aria-label');
   const press = (selector: string): void => {
-    deck()?.querySelector<HTMLElement>(selector)?.click();
+    deck()?.querySelector<HTMLElement>(`.card[data-depth="0"] ${selector}`)?.click();
   };
 
   const stack = (): (string | null | undefined)[] =>
@@ -129,7 +129,8 @@ describe('the cards', () => {
 
   it('show just the cards: no arrows, no count', () => {
     expect(stack()).toEqual(['Ada Park', 'Tomás Reyes', 'Minji Kim']);
-    expect(deck()?.querySelectorAll('button').length).toBe(2);
+    expect(deck()?.querySelectorAll('.card[data-depth="0"] button').length).toBe(2);
+    expect(deck()?.querySelector('[aria-label="Next person"]')).toBeNull();
   });
 
   it('swipe the top card away as the site’s "Not interested", with whoever it brings in joining at the back', () => {
@@ -154,7 +155,7 @@ describe('the cards', () => {
 
     await vi.waitFor(() => {
       cards.ensure();
-      expect(deck()?.querySelector('.follow')?.textContent).toBe('Following');
+      expect(deck()?.querySelector('.card[data-depth="0"] .follow')?.textContent).toBe('Following');
     });
   });
 
@@ -162,7 +163,7 @@ describe('the cards', () => {
     press('.follow');
     await vi.waitFor(() => {
       cards.ensure();
-      expect(deck()?.querySelector('.follow')?.textContent).toBe('Following');
+      expect(deck()?.querySelector('.card[data-depth="0"] .follow')?.textContent).toBe('Following');
     });
 
     key('ArrowRight');

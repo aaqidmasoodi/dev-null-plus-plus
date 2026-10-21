@@ -22,6 +22,21 @@ const FLICK_SPEED = 0.5;
 const SLOP_PX = 6;
 /** How many people show in the stack at once: the one on top, and two peeking out behind. */
 const STACK = 3;
+/** Where each card in the stack rests, top first: how far down, and how small. The CSS rests them the same. */
+const RESTING = [
+  { y: 0, scale: 1 },
+  { y: 8, scale: 0.95 },
+  { y: 16, scale: 0.9 },
+] as const;
+
+/** A card's place partway between where it rests at `depth` and the place in front, `rise` from 0 to 1. */
+function risen(depth: number, rise: number): string {
+  const at = (index: number): (typeof RESTING)[number] => RESTING[Math.min(Math.max(index, 0), 2)] ?? RESTING[0];
+  const from = at(depth);
+  const to = at(depth - 1);
+
+  return `translateY(${String(from.y + (to.y - from.y) * rise)}px) scale(${String(from.scale + (to.scale - from.scale) * rise)})`;
+}
 
 type Direction = 'left' | 'right';
 
@@ -159,6 +174,11 @@ class Deck {
           { once: true },
         );
         sharp.src = larger;
+
+        // Already here, from when this person was further back: shown at once, so moving up never flickers.
+        if (sharp.complete && sharp.naturalWidth > 0) {
+          sharp.classList.add('loaded');
+        }
         picture.append(sharp);
       }
     }
@@ -187,7 +207,8 @@ class Deck {
           // Always there, empty or not, so every card is the same height and nothing moves as they change.
           this.#line('bio', person.bio === null ? null : `# ${person.bio}`, person.bio),
           this.#line('reason', person.reason, person.reason),
-          isTop && this.#actions(person),
+          // Every card has its buttons, so the next one comes up complete; only the top one can be used.
+          this.#actions(person),
         ]),
       ],
     );
@@ -274,6 +295,26 @@ class Deck {
     return this.#stage.querySelector('.card[data-depth="0"]');
   }
 
+  /** The cards behind the top one, each with how deep it rests. */
+  #behind(): [HTMLElement, number][] {
+    return [...this.#stage.querySelectorAll<HTMLElement>('.card:not([data-depth="0"])')].map((card) => [
+      card,
+      Number(card.dataset.depth),
+    ]);
+  }
+
+  /**
+   * Moves the cards behind toward the places in front of them, `rise` from 0, at rest, to 1, in front. While dragging
+   * they follow the drag exactly; let go, they finish the move, or sink back, with the card's own transition.
+   */
+  #raise(rise: number, isFollowingDrag: boolean): void {
+    this.#stage.classList.toggle('dragging', isFollowingDrag);
+
+    for (const [card, depth] of this.#behind()) {
+      card.style.transform = rise === 0 ? '' : risen(depth, rise);
+    }
+  }
+
   /**
    * The top card goes off the way it was sent. For someone suggested, that is the row's own "Not interested", pressed
    * at once so the site brings in someone new while the card is still leaving; they join at the back. Someone you
@@ -306,6 +347,8 @@ class Deck {
     }
 
     this.#isMoving = true;
+    // The cards behind move up as this one leaves, so the next is already in place, buttons and all.
+    this.#raise(1, false);
 
     const away = (towards === 'left' ? -1 : 1) * (top.offsetWidth * 1.3);
 
@@ -372,6 +415,9 @@ class Deck {
       top.classList.add('dragging');
     }
 
+    // The further it goes, the further the next card comes up, all the way once it would go if let go.
+    this.#raise(Math.min(Math.abs(dx) / (top.offsetWidth * SWIPE_SHARE), 1), true);
+
     drag.x = dx;
     drag.samples = [
       ...drag.samples.filter((sample) => event.timeStamp - sample.time < 100),
@@ -406,6 +452,7 @@ class Deck {
     const isGoing = Math.abs(drag.x) > top.offsetWidth * SWIPE_SHARE || Math.abs(speed) > FLICK_SPEED;
 
     top.style.transform = '';
+    this.#raise(0, false);
 
     if (isGoing) {
       this.#swipeAway(drag.x < 0 ? 'left' : 'right', drag.x);

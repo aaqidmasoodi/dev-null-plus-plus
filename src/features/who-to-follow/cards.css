@@ -51,19 +51,24 @@
   box-shadow: 0 8px 24px -12px rgb(0 0 0 / 0.35);
 }
 
+/* As RESTING in cards.ts, which moves them between these while a card is swiped. */
 .card[data-depth='1'] {
   z-index: 2;
-  transform: translateY(0.5rem) scale(0.95);
+  transform: translateY(8px) scale(0.95);
 }
 
 .card[data-depth='2'] {
   z-index: 1;
-  transform: translateY(1rem) scale(0.9);
+  transform: translateY(16px) scale(0.9);
+}
+
+.card.dragging,
+.stage.dragging .card {
+  transition: none;
 }
 
 .card.dragging {
   cursor: grabbing;
-  transition: none;
 }
 
 .picture {
