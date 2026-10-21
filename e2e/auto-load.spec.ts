@@ -2,7 +2,7 @@ import type { BrowserContext, Page } from '@playwright/test';
 
 import { logHtml } from '../tests/fixtures/site';
 
-import { expect, SITE, test } from './fixtures';
+import { expect, SITE, switchFeature, test } from './fixtures';
 
 /**
  * Loading new commits on their own. The deterministic tests use a log page that mirrors the real markup, served at a
@@ -126,10 +126,7 @@ test('never moves a reader who is scrolled down, then loads once they are back a
 test('can be switched off on the settings page', async ({ page, context }) => {
   await serveLog(context);
   await page.goto(`${SITE}#dev-null-plus-plus`);
-  await page
-    .getByRole('radiogroup', { name: 'Load new commits automatically' })
-    .getByRole('radio', { name: 'Off' })
-    .click();
+  await switchFeature(page, 'Load new commits automatically', 'Off');
 
   await page.goto(FIXTURE);
   await page.evaluate(() => {

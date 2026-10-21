@@ -22,6 +22,10 @@ Every feature can be switched off on the settings page.
   or X, stay plain links. A normal click is unchanged.
 - **Image peek.** Press and hold any image, such as one of a commit's photos, and it grows out of the page to fill
   the screen. Let go and it goes back exactly where it was. A normal click still opens the site's photo viewer.
+- **Picture-in-picture.** Keep a video playing while you scroll and browse. Scroll past a playing video and it floats
+  to a corner; scroll back and it returns to its post. Pop it out with the button under the video and it stays out on
+  every page until you play it here or close it. Drag it to any corner and resize it from its corners. Works for every
+  video provider the site plays.
 
 ## Install (development build)
 
@@ -76,6 +80,7 @@ src/
     log.ts                      The log's new-commits pill and feed
     links.ts                    Which links can be previewed
     images.ts                   Which images can be peeked at
+    embeds.ts                   Video embeds, and the bars along the screen's edges
   features/
     nav-item/                   The "/dev/null++" link in the left navigation
     settings-page/              The settings page it opens, built from sections
@@ -83,6 +88,7 @@ src/
     auto-load/                  Loading new commits when the log's pill appears
     link-preview/               Press and hold a link to preview it in a private window
     image-peek/                 Press and hold an image to see it big
+    pip/                        Picture-in-picture for videos
 ```
 
 A few rules keep this working while dev-null.sh deploys many times a day.

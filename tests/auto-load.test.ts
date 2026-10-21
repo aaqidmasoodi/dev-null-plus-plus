@@ -9,7 +9,16 @@ import { removeTakeover, setTakeover } from '@/site/takeover';
 import { logHtml, respondToPillLikeTheSite } from './fixtures/site';
 
 const state = (autoLoadNewCommits = true): ExtensionState => ({
-  settings: { features: { aiRewrite: true, autoLoadNewCommits, linkPreview: true, imagePeek: true } },
+  settings: {
+    features: {
+      aiRewrite: true,
+      autoLoadNewCommits,
+      linkPreview: true,
+      imagePeek: true,
+      pictureInPicture: true,
+      autoPictureInPicture: true,
+    },
+  },
   ai: null,
 });
 

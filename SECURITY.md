@@ -46,7 +46,9 @@ The extension has three parts, trusted in this order:
 - Every message is checked for both its shape and its sender (`src/core/messages.ts`). Content scripts accept only our
   own background. The background accepts only our content script in the top frame of a dev-null.sh tab. Unknown fields
   are rejected, not ignored.
-- No `postMessage` channels with the page.
+- No `postMessage` channels with the page. The one exchange with a frame is picture-in-picture asking a video
+  provider (YouTube, Vimeo) whether it is playing: only with our own player's frame, only to and from that provider's
+  exact origin, reading a single field of what comes back (`src/features/pip/playback.ts`).
 
 **Secrets and data**
 
@@ -83,6 +85,15 @@ The extension has three parts, trusted in this order:
   (`src/background/frame-failures.ts`). Events from every other site are dropped without being stored or sent
   anywhere. The tab is told only the failed page's address and why, and only shows a notice if that is the page its
   preview is showing.
+
+**Picture-in-picture**
+
+- Our player plays exactly the frame the site would have: the same address and the same `allow`, `sandbox` and
+  referrer policy, read from the site's frame when play is pressed, and only for `https:` addresses. YouTube is also
+  asked to report its state, to dev-null.sh only.
+- The site's own frame for that video is emptied before it loads, so the video never plays twice. That is the one
+  attribute the extension changes on an element the site renders, and React never sets it again.
+- Videos in chats, dialogs and other panels are left to the site.
 
 **Image peeks**
 
