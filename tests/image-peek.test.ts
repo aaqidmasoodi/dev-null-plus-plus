@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { drawnRect, frameAt, intersect, parseObjectPosition, peekRect } from '@/features/image-peek/geometry';
 import { GROW_MS, ImagePeek, PEEK_DELAY_MS, RETURN_MS } from '@/features/image-peek/image-peek';
-import { peekableImage } from '@/site/images';
+import { largerAvatar, peekableImage } from '@/site/images';
 
 const box = { left: 100, top: 200, width: 300, height: 200 };
 
@@ -105,6 +105,51 @@ describe('peekable images', () => {
     expect(peekableImage(picture('<div id="app"><div role="dialog"><img src="/a.png"></div></div>'))).toBeNull();
     expect(peekableImage(picture('<div id="app"><img src="/favicon.svg" data-fallback></div>'))).toBeNull();
     expect(peekableImage(picture('<div id="app"><img src="/i.png"></div>', 16))).toBeNull();
+  });
+
+  describe('avatars', () => {
+    const avatar = '<img data-slot="avatar-image" src="https://avatars.githubusercontent.com/u/1?v=4&s=80">';
+
+    afterEach(() => {
+      history.replaceState(null, '', '/log/latest');
+    });
+
+    it('are left to the site’s card about the person, in the log and everywhere else', () => {
+      expect(
+        peekableImage(picture(`<div id="app"><main data-main><article>${avatar}</article></main></div>`)),
+      ).toBeNull();
+      history.replaceState(null, '', '/@someone');
+      expect(
+        peekableImage(picture(`<div id="app"><main data-main><article>${avatar}</article></main></div>`)),
+      ).toBeNull();
+    });
+
+    it('are peeked at only on their own profile, and your own in the composer', () => {
+      const composer = picture(`<div id="app"><div data-test="commit-composer">${avatar}</div></div>`);
+
+      expect(peekableImage(composer)).toBe(composer);
+
+      history.replaceState(null, '', '/@someone');
+
+      const profile = picture(`<div id="app"><main data-main><header>${avatar}</header></main></div>`);
+
+      expect(peekableImage(profile)).toBe(profile);
+    });
+  });
+});
+
+describe('a larger avatar', () => {
+  it('is the same GitHub avatar at the size asked for', () => {
+    expect(largerAvatar('https://avatars.githubusercontent.com/u/1?v=4&s=80', 960)).toBe(
+      'https://avatars.githubusercontent.com/u/1?v=4&s=960',
+    );
+    expect(largerAvatar('https://avatars.githubusercontent.com/u/1?v=4', 5000)).toContain('s=2048');
+  });
+
+  it('is only ever asked of GitHub’s avatars', () => {
+    expect(largerAvatar('https://dev-null.sh/a.png', 960)).toBeNull();
+    expect(largerAvatar('http://avatars.githubusercontent.com/u/1?s=80', 960)).toBeNull();
+    expect(largerAvatar('not a url', 960)).toBeNull();
   });
 });
 
@@ -308,5 +353,50 @@ describe('press and hold an image', () => {
 
     controller.abort();
     expect(overlay()).toBeNull();
+  });
+});
+
+describe('peeking at an avatar', () => {
+  let controller: AbortController;
+
+  afterEach(() => {
+    controller.abort();
+    vi.useRealTimers();
+    document.documentElement.querySelectorAll('[data-dnpp]').forEach((node) => {
+      node.remove();
+    });
+    document.body.innerHTML = '';
+  });
+
+  it('grows at once, then sharpens as the larger avatar arrives', async () => {
+    vi.useFakeTimers();
+    vi.spyOn(HTMLImageElement.prototype, 'decode').mockResolvedValue(undefined);
+    document.body.innerHTML =
+      '<div id="app"><div data-test="commit-composer"><img data-slot="avatar-image" src="https://avatars.githubusercontent.com/u/1?v=4&s=80"></div></div>';
+
+    const image = firstImage();
+
+    Object.defineProperties(image, {
+      complete: { value: true },
+      naturalWidth: { value: 80 },
+      naturalHeight: { value: 80 },
+    });
+    image.getBoundingClientRect = () => DOMRect.fromRect({ x: 10, y: 20, width: 40, height: 40 });
+    controller = new AbortController();
+    new ImagePeek({ enabled: () => true, signal: controller.signal });
+    image.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, isPrimary: true, button: 0, pointerId: 1 }));
+    vi.advanceTimersByTime(PEEK_DELAY_MS);
+
+    const pictures = (): string[] =>
+      [...(document.querySelector('[data-dnpp="image-peek"]')?.shadowRoot?.querySelectorAll('img') ?? [])].map(
+        (picture) => picture.src,
+      );
+
+    // Straight away, the avatar already on the page, laid out at the larger size.
+    expect(pictures()).toEqual(['https://avatars.githubusercontent.com/u/1?v=4&s=80']);
+
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(pictures()[1]).toMatch(/^https:\/\/avatars\.githubusercontent\.com\/u\/1\?v=4&s=\d{3,}$/);
   });
 });

@@ -24,7 +24,9 @@ Every feature can be switched off on the settings page.
   private window: none of your cookies or logins. Sites known to refuse being shown inside another page, like GitHub
   or X, stay plain links. A normal click is unchanged.
 - **Image peek.** Press and hold any image, such as one of a commit's photos, and it grows out of the page to fill
-  the screen. Let go and it goes back exactly where it was. A normal click still opens the site's photo viewer.
+  the screen. Let go and it goes back exactly where it was. A normal click still opens the site's photo viewer. Avatars
+  can be peeked at on their own profile and in your composer, sharp at full size; elsewhere hovering them shows the
+  site's card about the person, as before.
 - **Picture-in-picture.** Keep a video playing while you scroll and browse. Scroll past a playing video and it floats
   to a corner; scroll back and it returns to its post. Pop it out with the button under the video and it stays out on
   every page until you play it here or close it. Drag it to any corner and resize it from its corners. Works for every
