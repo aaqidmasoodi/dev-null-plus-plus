@@ -1,0 +1,1486 @@
+/*
+ * The welcome's moving pictures. Each one is drawn on a stage of 512 by 288 pixels and scaled to fit, out of pieces that
+ * look like the site's own: its cards, buttons, tooltips and commits, in its theme tokens, so they follow light and dark
+ * mode. Everything here only says how a piece looks; where it goes and when is written in the scene (scenes/*.ts).
+ */
+
+.picture {
+  position: relative;
+  overflow: hidden;
+}
+
+.stage {
+  --fit: 1;
+
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 512px;
+  height: 288px;
+  margin: -144px 0 0 -256px;
+  overflow: hidden;
+  color: var(--foreground, CanvasText);
+  font-family: var(--font-geist, ui-sans-serif, system-ui, sans-serif);
+  font-size: 15px;
+  line-height: 1.4;
+  scale: var(--fit);
+  user-select: none;
+}
+
+.stage > * {
+  position: absolute;
+  inset: 0;
+}
+
+.stage :where(div, span, article, i, svg, p) {
+  box-sizing: border-box;
+}
+
+.mono {
+  font-family: var(--font-geist-mono, ui-monospace, monospace);
+}
+
+/* A card, as the site draws them. */
+.sheet {
+  position: absolute;
+  overflow: hidden;
+  border: 1px solid var(--border, GrayText);
+  border-radius: calc(var(--radius, 0.5rem) * 1.5);
+  background: var(--card, Canvas);
+  box-shadow:
+    0 24px 48px -20px rgb(0 0 0 / 0.4),
+    0 1px 2px rgb(0 0 0 / 0.06);
+}
+
+.sheet.flat {
+  border-radius: var(--radius, 0.5rem);
+  box-shadow: none;
+}
+
+/* The pointer. */
+
+.cursor {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 40;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.cursor .pointer {
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  width: 16px;
+  height: 21px;
+  filter: drop-shadow(0 2px 3px rgb(0 0 0 / 0.35));
+  transform-origin: 1px 1px;
+}
+
+.cursor .arrow {
+  display: block;
+  width: 100%;
+  height: 100%;
+  fill: #fff;
+  stroke: #111;
+  stroke-linejoin: round;
+  stroke-width: 1.4;
+}
+
+.cursor .ripple,
+.cursor .hold {
+  position: absolute;
+  top: -18px;
+  left: -18px;
+  width: 36px;
+  height: 36px;
+  opacity: 0;
+}
+
+.cursor .ripple {
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary, #3b6fe0) 55%, transparent);
+}
+
+.cursor .hold-ring {
+  display: block;
+  width: 100%;
+  height: 100%;
+  fill: none;
+  rotate: -90deg;
+  stroke-linecap: round;
+  stroke-width: 3;
+}
+
+.cursor .track {
+  stroke: color-mix(in srgb, var(--foreground, CanvasText) 18%, transparent);
+}
+
+.cursor .progress {
+  stroke: var(--primary, #3b6fe0);
+}
+
+/* A tooltip, as the site's: a small popover with an arrow. */
+.tip {
+  position: absolute;
+  padding: 6px 10px;
+  border: 1px solid var(--border, GrayText);
+  border-radius: var(--radius, 0.5rem);
+  background: var(--popover, Canvas);
+  box-shadow: 0 12px 32px -12px rgb(0 0 0 / 0.35);
+  color: var(--popover-foreground, CanvasText);
+  font-size: 12px;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.tip::after {
+  position: absolute;
+  bottom: -5.5px;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  border-right: 1px solid var(--border, GrayText);
+  border-bottom: 1px solid var(--border, GrayText);
+  border-radius: 2px;
+  background: var(--popover, Canvas);
+  content: '';
+  transform: translateX(-50%) rotate(45deg);
+}
+
+/* A button in a toolbar, and the primary button, as the site's. */
+.tool {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  place-items: center;
+  border-radius: calc(var(--radius, 0.5rem) - 2px);
+  color: var(--muted-foreground, GrayText);
+}
+
+.tool svg {
+  width: 18px;
+  height: 18px;
+}
+
+.tool.on {
+  background: var(--primary-soft, transparent);
+  color: var(--primary, LinkText);
+}
+
+.go {
+  display: inline-flex;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 14px;
+  border-radius: calc(var(--radius, 0.5rem) - 2px);
+  background: var(--primary, AccentColor);
+  color: var(--primary-foreground, AccentColorText);
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.go svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Letters that are typed one at a time, and the caret after the last. */
+.ch {
+  position: relative;
+}
+
+.caret {
+  position: absolute;
+  top: 0.12em;
+  right: -1px;
+  bottom: 0.12em;
+  width: 1.5px;
+  background: var(--foreground, CanvasText);
+}
+
+/* A person, as a soft gradient with a head and shoulders. */
+.avatar {
+  position: relative;
+  overflow: hidden;
+  border-radius: 999px;
+  background: linear-gradient(145deg, var(--from), var(--to));
+}
+
+.avatar .head,
+.avatar .shoulders {
+  position: absolute;
+  left: 50%;
+  background: color-mix(in srgb, #fff 82%, var(--to));
+  opacity: 0.92;
+  transform: translateX(-50%);
+}
+
+.avatar .head {
+  top: 22%;
+  width: 34%;
+  height: 34%;
+  border-radius: 999px;
+}
+
+.avatar .shoulders {
+  top: 62%;
+  width: 70%;
+  height: 70%;
+  border-radius: 999px;
+}
+
+/* A commit in the log. */
+.post {
+  position: relative;
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.post .rail {
+  position: relative;
+}
+
+.post .tail {
+  position: absolute;
+  top: 34px;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  background: var(--lane);
+  transform: translateX(-50%);
+}
+
+.post .ring {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  padding: 2px;
+  border: 2px solid var(--lane);
+  border-radius: 999px;
+  background: var(--card, Canvas);
+  transform: translateX(-50%);
+}
+
+.post .ring .avatar {
+  width: 32px;
+  height: 32px;
+}
+
+.post .main {
+  min-width: 0;
+  padding: 10px 14px 8px 0;
+}
+
+.post .meta {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 14px;
+  line-height: 20px;
+  white-space: nowrap;
+}
+
+.post .name {
+  font-weight: 600;
+}
+
+.post .handle,
+.post .sep {
+  color: var(--muted-foreground, GrayText);
+  font-family: var(--font-geist-mono, ui-monospace, monospace);
+  font-size: 12px;
+}
+
+.post .words {
+  margin-top: 2px;
+  font-size: 14px;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+
+.post .tools {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin: 6px 0 0 -8px;
+  color: var(--muted-foreground, GrayText);
+  font-family: var(--font-geist-mono, ui-monospace, monospace);
+  font-size: 12px;
+}
+
+.post .act {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+}
+
+.post .act svg {
+  width: 14px;
+  height: 14px;
+}
+
+.post .act.copy {
+  margin-left: auto;
+}
+
+/* A link in a commit's words. */
+.words .url {
+  color: var(--primary, LinkText);
+}
+
+/* A page that is only there to be recognised as a page. */
+.line {
+  height: 6px;
+  margin-top: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--foreground, CanvasText) 10%, transparent);
+}
+
+/* The rewrite panel's composer. */
+
+.composer .draft {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  left: 14px;
+  height: 44px;
+  font-size: 14px;
+  line-height: 22px;
+}
+
+.composer .draft > * {
+  position: absolute;
+  inset: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.composer .draft .sweep {
+  margin: -6px -8px;
+  border-radius: 6px;
+  background-image: linear-gradient(
+    100deg,
+    transparent 30%,
+    color-mix(in srgb, var(--primary, #3b6fe0) 14%, transparent) 50%,
+    transparent 70%
+  );
+  background-size: 250% 100%;
+  opacity: 0;
+}
+
+.composer .toolbar {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  left: 10px;
+  display: flex;
+  height: 34px;
+  align-items: center;
+  gap: 2px;
+}
+
+.composer .toolbar .spacer {
+  flex: 1;
+}
+
+.composer .toolbar .ai {
+  position: relative;
+}
+
+.panel {
+  position: absolute;
+  right: 12px;
+  left: 12px;
+  display: grid;
+  height: 148px;
+  align-content: start;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--border, GrayText);
+  border-radius: var(--radius, 0.5rem);
+  background: color-mix(in srgb, var(--muted, transparent) 30%, transparent);
+}
+
+.panel .head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.panel .title {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 18px;
+}
+
+.panel .brand {
+  color: var(--muted-foreground, GrayText);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  opacity: 0.6;
+}
+
+.panel .field {
+  position: relative;
+  display: flex;
+  height: 32px;
+  align-items: center;
+  padding: 0 12px 0 34px;
+  border: 1px solid var(--input, GrayText);
+  border-radius: calc(var(--radius, 0.5rem) - 2px);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+  color: var(--muted-foreground, GrayText);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.panel .field svg {
+  position: absolute;
+  left: 11px;
+  width: 15px;
+  height: 15px;
+}
+
+.panel .presets {
+  display: flex;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.panel .preset {
+  display: inline-flex;
+  height: 26px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  border: 1px solid var(--border, GrayText);
+  border-radius: 999px;
+  color: var(--muted-foreground, GrayText);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.panel .preset.hover {
+  background: var(--accent, transparent);
+  color: var(--foreground, CanvasText);
+}
+
+.panel .preset.busy {
+  border-color: var(--primary, LinkText);
+  background: var(--primary-soft, transparent);
+  color: var(--primary, LinkText);
+}
+
+.panel .spin-slot {
+  display: flex;
+  width: 0;
+  flex: none;
+  overflow: hidden;
+}
+
+.panel .spinner {
+  flex: none;
+  width: 11px;
+  height: 11px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 999px;
+}
+
+.panel .status {
+  position: relative;
+  height: 32px;
+  color: var(--muted-foreground, GrayText);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.panel .status > * {
+  position: absolute;
+  inset: 0 auto auto 0;
+}
+
+.panel .status .shimmer {
+  background: linear-gradient(
+      90deg,
+      var(--muted-foreground, GrayText) 0%,
+      var(--foreground, CanvasText) 50%,
+      var(--muted-foreground, GrayText) 100%
+    )
+    0 0 / 200% 100%;
+  background-clip: text;
+  color: transparent;
+}
+
+.panel .status .link {
+  margin-left: 6px;
+  color: var(--primary, LinkText);
+  font-weight: 500;
+}
+
+/* The log: commits one under another in a card. */
+
+.feed > .post + .post {
+  border-top: 1px solid var(--border, GrayText);
+}
+
+/* The link preview. */
+
+.dim {
+  position: absolute;
+  inset: 0;
+  background: rgb(0 0 0 / 0.5);
+  opacity: 0;
+}
+
+.dialog {
+  position: absolute;
+  border-radius: calc(var(--radius, 0.5rem) * 1.5);
+  box-shadow: 0 32px 80px -24px rgb(0 0 0 / 0.55);
+}
+
+.dialog.sheet {
+  display: block;
+  overflow: hidden;
+}
+
+.dialog .bar {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 36px;
+  border-bottom: 1px solid var(--border, GrayText);
+}
+
+.dialog .bar > * {
+  position: absolute;
+}
+
+.dialog .address {
+  top: 0;
+  left: 12px;
+  display: flex;
+  height: 35px;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.dialog .address svg {
+  width: 14px;
+  height: 14px;
+  color: var(--muted-foreground, GrayText);
+}
+
+.dialog .address .host {
+  font-weight: 500;
+}
+
+.dialog .address .path {
+  color: var(--muted-foreground, GrayText);
+  font-family: var(--font-geist-mono, ui-monospace, monospace);
+  font-size: 11px;
+}
+
+.dialog .sizes {
+  top: 3px;
+  left: 170px;
+  width: 174px;
+  height: 28px;
+  border: 1px solid var(--border, GrayText);
+  border-radius: var(--radius, 0.5rem);
+}
+
+.dialog .sizes .thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  height: 22px;
+  border-radius: calc(var(--radius, 0.5rem) - 2px);
+  background: var(--primary-soft, transparent);
+}
+
+.dialog .sizes .size {
+  position: absolute;
+  top: 2px;
+  display: grid;
+  height: 22px;
+  place-items: center;
+  color: var(--muted-foreground, GrayText);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.dialog .bar .action {
+  top: 3px;
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: calc(var(--radius, 0.5rem) - 2px);
+  color: var(--muted-foreground, GrayText);
+}
+
+.dialog .bar .action svg {
+  width: 15px;
+  height: 15px;
+}
+
+.dialog .stage-area {
+  position: absolute;
+  top: 36px;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--muted, transparent) 45%, transparent);
+}
+
+.dialog .viewport {
+  position: absolute;
+  overflow: hidden;
+  border: 1px solid transparent;
+  background: #fff;
+  container-type: inline-size;
+}
+
+/* A website of its own, always light, as the pages in a preview are: a made-up one, there to be recognised as a page. */
+.site {
+  --ink: #16181d;
+  --soft: #6b7280;
+  --brand: #0ea5b7;
+
+  position: absolute;
+  inset: 0;
+  padding: 10px 12px;
+  color: var(--ink);
+  font-family: var(--font-geist, ui-sans-serif, system-ui, sans-serif);
+}
+
+.site .top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.site .mark {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  background: linear-gradient(135deg, #0ea5b7, #34d399);
+}
+
+.site .top .links {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.site .top .links i {
+  width: 22px;
+  height: 5px;
+  border-radius: 99px;
+  background: #d9dde3;
+}
+
+.site h3 {
+  margin: 14px 0 0;
+  font-size: clamp(13px, 6.2cqw, 28px);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.site h3 em {
+  color: var(--brand);
+  font-style: normal;
+}
+
+.site .sub {
+  margin-top: 6px;
+  color: var(--soft);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.site .cta {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 4px 10px;
+  border-radius: 99px;
+  background: var(--brand);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.site .tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.site .tile {
+  height: 44px;
+  padding: 7px;
+  border: 1px solid #e5e8ec;
+  border-radius: 6px;
+}
+
+.site .tile i {
+  display: block;
+  width: 10px;
+  height: 10px;
+  margin-bottom: 6px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--brand) 35%, #fff);
+}
+
+.site .tile b {
+  display: block;
+  height: 4px;
+  margin-top: 3px;
+  border-radius: 99px;
+  background: #e1e5ea;
+}
+
+/* Pictures attached to a commit, and the picture held up close. */
+
+.media {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+  margin-top: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border, GrayText);
+  border-radius: var(--radius, 0.5rem);
+}
+
+.photo {
+  position: relative;
+  height: 148px;
+  overflow: hidden;
+  background: linear-gradient(180deg, #1b2a6b 0%, #7b2d8e 38%, #e8590c 72%, #ffa94d 100%);
+}
+
+.photo .sun {
+  position: absolute;
+  top: 56%;
+  left: 62%;
+  width: 36px;
+  height: 36px;
+  margin: -18px;
+  border-radius: 999px;
+  background: radial-gradient(circle, #fff3bf 0%, #ffd43b 55%, rgb(255 212 59 / 0) 72%);
+  box-shadow: 0 0 40px 12px rgb(255 169 77 / 0.5);
+}
+
+.photo .ridge {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+}
+
+.photo .ridge.far {
+  height: 48%;
+  background: #34205e;
+  clip-path: polygon(0 62%, 14% 38%, 28% 58%, 46% 22%, 63% 55%, 78% 34%, 100% 60%, 100% 100%, 0 100%);
+}
+
+.photo .ridge.near {
+  height: 34%;
+  background: #170f2e;
+  clip-path: polygon(0 55%, 18% 30%, 34% 52%, 55% 18%, 72% 48%, 88% 28%, 100% 46%, 100% 100%, 0 100%);
+}
+
+.photo.code {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 16px 14px;
+  background: #0e1220;
+}
+
+.photo.code i {
+  display: block;
+  height: 6px;
+  border-radius: 99px;
+  background: var(--tone);
+}
+
+.photo.code .dots {
+  display: flex;
+  gap: 5px;
+  margin-bottom: 4px;
+}
+
+.photo.code .dots b {
+  width: 7px;
+  height: 7px;
+  border-radius: 99px;
+  background: var(--tone);
+}
+
+.peek {
+  position: absolute;
+  z-index: 20;
+  overflow: hidden;
+  border-radius: 8px;
+  transform-origin: 0 0;
+  box-shadow: 0 24px 60px -16px rgb(0 0 0 / 0.6);
+}
+
+.peek .photo {
+  height: 100%;
+}
+
+/* Picture-in-picture: a video in a commit, the player that leaves it, and what the commit shows meanwhile. */
+
+.slot {
+  position: relative;
+  margin-top: 8px;
+  overflow: hidden;
+  border-radius: var(--radius, 0.5rem);
+  background: #000;
+}
+
+.elsewhere {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: rgb(0 0 0 / 0.5);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+  text-align: center;
+}
+
+.elsewhere > svg {
+  width: 26px;
+  height: 26px;
+  opacity: 0.8;
+}
+
+.elsewhere .play-here {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 13px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.15);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.25);
+}
+
+.elsewhere .play-here svg {
+  width: 12px;
+  height: 12px;
+  fill: currentColor;
+}
+
+.slot .poster .photo {
+  height: 100%;
+}
+
+.slot .poster {
+  position: absolute;
+  inset: 0;
+  opacity: 0.5;
+  filter: blur(10px);
+  transform: scale(1.1);
+}
+
+.post .pip {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  margin-left: 4px;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--muted-foreground, GrayText);
+}
+
+.post .pip svg {
+  width: 16px;
+  height: 16px;
+}
+
+.player {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 10;
+}
+
+.player .surface {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #000;
+  box-shadow:
+    0 0 0 1px rgb(255 255 255 / 0.1),
+    0 25px 50px -12px rgb(0 0 0 / 0.45);
+}
+
+.player .photo {
+  height: 100%;
+}
+
+/* What the provider's own player draws over its video: a progress line along the foot. */
+.player .progress {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: rgb(255 255 255 / 0.25);
+}
+
+.player .progress i {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: #ff3b30;
+  transform-origin: 0 50%;
+}
+
+.player .controls {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+}
+
+.player .handle {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  color: var(--foreground, CanvasText);
+  filter: drop-shadow(0 1px 3px rgb(0 0 0 / 0.35));
+}
+
+.player .handle svg {
+  width: 100%;
+  height: 100%;
+}
+
+.player .handle.tl {
+  top: -14px;
+  left: -14px;
+}
+
+.player .handle.tr {
+  top: -14px;
+  right: -14px;
+  rotate: 90deg;
+}
+
+.player .handle.br {
+  right: -14px;
+  bottom: -14px;
+  rotate: 180deg;
+}
+
+.player .handle.bl {
+  bottom: -14px;
+  left: -14px;
+  rotate: -90deg;
+}
+
+.player .below {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.player .grabber {
+  display: flex;
+  width: clamp(48px, calc(100% - 80px), 128px);
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+}
+
+.player .grabber span {
+  width: 85%;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--foreground, CanvasText);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.3);
+}
+
+.player .round {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--foreground, CanvasText);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.3);
+  color: var(--background, Canvas);
+}
+
+.player .round svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* The page's scrollbar, so it is plain the page is moving. */
+.scrollbar {
+  position: absolute;
+  top: 8px;
+  right: 3px;
+  width: 4px;
+  height: 56px;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--foreground, CanvasText) 30%, transparent);
+}
+
+/* New commits: the log's tabs, and the pill that says they are there. */
+
+.tabs {
+  display: flex;
+  height: 40px;
+  border-bottom: 1px solid var(--border, GrayText);
+}
+
+.tabs span {
+  display: grid;
+  flex: 1;
+  place-items: center;
+  color: var(--muted-foreground, GrayText);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.tabs span.current {
+  color: var(--foreground, CanvasText);
+  box-shadow: inset 0 -2px 0 var(--primary, LinkText);
+}
+
+.rows {
+  position: absolute;
+  top: 40px;
+  right: 0;
+  left: 0;
+  bottom: 0;
+  overflow: hidden;
+}
+
+.rows > * {
+  position: absolute;
+  right: 0;
+  left: 0;
+}
+
+.rows .post {
+  border-bottom: 1px solid var(--border, GrayText);
+}
+
+.pill {
+  position: absolute;
+  top: 52px;
+  left: 50%;
+  z-index: 5;
+  display: grid;
+  height: 32px;
+  grid-template-columns: minmax(0, 1fr);
+  margin-left: -50px;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--primary, LinkText);
+  box-shadow: 0 4px 14px -4px rgb(0 0 0 / 0.35);
+  color: var(--primary-foreground, Canvas);
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.pill > span {
+  display: flex;
+  grid-area: 1 / 1;
+  align-items: center;
+  gap: 6px;
+}
+
+.pill svg {
+  width: 16px;
+  height: 16px;
+}
+
+.pill .spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 999px;
+}
+
+/* Who to follow: a stack of cards. */
+
+.world {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 512px;
+}
+
+.world h4 {
+  position: absolute;
+  top: 8px;
+  left: 156px;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 22px;
+}
+
+.wcard {
+  position: absolute;
+  top: 36px;
+  left: 156px;
+  display: flex;
+  width: 200px;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--border, GrayText);
+  border-radius: calc(var(--radius, 0.5rem) * 1.5);
+  background: var(--card, Canvas);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.06);
+  transform-origin: 50% 100%;
+}
+
+.wcard .picture-box {
+  position: relative;
+  aspect-ratio: 1;
+  overflow: hidden;
+}
+
+.wcard .picture-box .avatar {
+  position: absolute;
+  inset: 0;
+  border-radius: 0;
+}
+
+.wcard .info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px 14px;
+  border-top: 1px solid var(--border, GrayText);
+}
+
+.wcard .who {
+  height: 24px;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 24px;
+  white-space: nowrap;
+}
+
+.wcard .username {
+  display: flex;
+  height: 16px;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted-foreground, GrayText);
+  font-family: var(--font-geist-mono, ui-monospace, monospace);
+  font-size: 12px;
+}
+
+.wcard .username i {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--lane);
+}
+
+.wcard .bio,
+.wcard .reason {
+  margin: 0;
+  overflow: hidden;
+  color: var(--muted-foreground, GrayText);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.wcard .bio {
+  height: 32px;
+  margin-top: 6px;
+  font-family: var(--font-geist-mono, ui-monospace, monospace);
+}
+
+.wcard .reason {
+  height: 16px;
+  white-space: nowrap;
+}
+
+.wcard .buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.wcard .dismiss {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  place-items: center;
+  border: 1px solid var(--input, var(--border, GrayText));
+  border-radius: calc(var(--radius, 0.5rem) - 2px);
+  background: var(--background, Canvas);
+  color: var(--muted-foreground, GrayText);
+}
+
+.wcard .dismiss svg {
+  width: 16px;
+  height: 16px;
+}
+
+.wcard .follow {
+  position: relative;
+  display: grid;
+  height: 36px;
+  flex: 1;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: calc(var(--radius, 0.5rem) - 2px);
+  background: var(--primary, AccentColor);
+  color: var(--primary-foreground, AccentColorText);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.wcard .follow > * {
+  display: flex;
+  grid-area: 1 / 1;
+  align-items: center;
+  gap: 6px;
+}
+
+.wcard .follow > :nth-child(2) {
+  opacity: 0;
+}
+
+.wcard .follow svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* The intro. */
+
+.blob {
+  position: absolute;
+  width: 220px;
+  height: 220px;
+  border-radius: 999px;
+  filter: blur(50px);
+  opacity: 0.32;
+}
+
+.mark-box {
+  position: absolute;
+  top: 34px;
+  left: 196px;
+  width: 120px;
+  height: 120px;
+  color: var(--foreground, CanvasText);
+}
+
+.mark-box svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.wordmark {
+  position: absolute;
+  top: 168px;
+  right: 0;
+  left: 0;
+  font-family: var(--font-geist-mono, ui-monospace, monospace);
+  font-size: 32px;
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  line-height: 40px;
+  text-align: center;
+}
+
+.wordmark .slash {
+  color: transparent;
+  -webkit-text-stroke: max(1px, 0.035em) var(--lane-0, #d9480f);
+}
+
+.wordmark .caret {
+  top: 0.18em;
+  bottom: 0.1em;
+  right: -2px;
+  width: 3px;
+  background: var(--lane-0, #d9480f);
+}
+
+.tagline {
+  position: absolute;
+  top: 216px;
+  right: 0;
+  left: 0;
+  color: var(--muted-foreground, GrayText);
+  font-size: 14px;
+  text-align: center;
+}
+
+/* The outro: where dev/null++ lives, and its switches. */
+
+.nav {
+  position: absolute;
+  top: 18px;
+  left: 16px;
+  width: 168px;
+}
+
+.nav .item {
+  position: relative;
+  display: flex;
+  height: 31px;
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px;
+  border-radius: var(--radius, 0.5rem);
+  color: var(--muted-foreground, GrayText);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.nav .item svg {
+  width: 17px;
+  height: 17px;
+  flex: none;
+}
+
+.nav .item.here {
+  color: var(--primary, LinkText);
+}
+
+.nav .item .glow {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: var(--radius, 0.5rem);
+  background: var(--primary-soft, transparent);
+  opacity: 0;
+}
+
+.nav .commit {
+  margin-top: 12px;
+  justify-content: center;
+  background: var(--primary, AccentColor);
+  color: var(--primary-foreground, AccentColorText);
+}
+
+.settings {
+  position: absolute;
+  top: 14px;
+  left: 200px;
+  width: 296px;
+  height: 260px;
+}
+
+.settings .title {
+  display: flex;
+  height: 38px;
+  align-items: center;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--border, GrayText);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.settings .option {
+  position: absolute;
+  right: 12px;
+  left: 12px;
+  height: 46px;
+  padding: 0 12px;
+  border: 1px solid var(--border, GrayText);
+  border-radius: var(--radius, 0.5rem);
+}
+
+.settings .option .words {
+  position: absolute;
+  top: 6px;
+  left: 12px;
+}
+
+.settings .option h5 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+}
+
+.settings .option p {
+  margin: 0;
+  color: var(--muted-foreground, GrayText);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.settings .segmented {
+  position: absolute;
+  top: 9px;
+  right: 10px;
+  width: 80px;
+  height: 28px;
+  border: 1px solid var(--border, GrayText);
+  border-radius: var(--radius, 0.5rem);
+}
+
+.settings .segmented .thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 36px;
+  height: 22px;
+  border-radius: calc(var(--radius, 0.5rem) - 2px);
+  background: var(--primary-soft, transparent);
+}
+
+.settings .segmented span {
+  position: absolute;
+  top: 2px;
+  display: grid;
+  width: 36px;
+  height: 22px;
+  place-items: center;
+  color: var(--muted-foreground, GrayText);
+  font-size: 12px;
+  font-weight: 500;
+}

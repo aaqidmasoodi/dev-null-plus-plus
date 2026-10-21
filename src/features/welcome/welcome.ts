@@ -1,9 +1,8 @@
-import { createLogoMark } from '@/core/brand';
 import { createSvgIcon, el, markOwned, ownedSelector } from '@/core/dom';
 import { CLOSE_ICON } from '@/core/icons';
-import { SPARKLES_ICON } from '@/features/ai-rewrite/composer-ai';
-import { PIP_ICON } from '@/features/pip/cards';
 
+import motion from './motion/motion.css?inline';
+import { createPicture, type Picture, type SceneId } from './motion/picture';
 import styles from './welcome.css?inline';
 
 export const WELCOME_ROLE = 'welcome';
@@ -15,17 +14,6 @@ export const WELCOMED_KEY = 'welcomed';
 
 /** Lucide icons, to match the site's. */
 const ICONS = {
-  link: [
-    'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71',
-    'M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71',
-  ],
-  image: [
-    'M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z',
-    'M11 9a2 2 0 1 1-4 0 2 2 0 0 1 4 0z',
-    'm21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21',
-  ],
-  commit: ['M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z', 'M3 12h6', 'M15 12h6'],
-  check: ['M20 6 9 17l-5-5'],
   back: ['m15 18-6-6 6-6'],
   next: ['m9 18 6-6-6-6'],
 } as const;
@@ -33,46 +21,51 @@ const ICONS = {
 export interface WelcomeStep {
   title: string;
   text: string;
-  /** What the picture shows: the logo, or a feature's icon in one of the site's lane colours. */
-  picture: { kind: 'logo' } | { kind: 'icon'; icon: readonly string[]; lane: number };
+  /** The short moving picture that shows it (src/features/welcome/motion). */
+  scene: SceneId;
 }
 
-/** One step per feature, a line or two each. The picture area is where each feature will later show itself in motion. */
+/** One step per feature, a line or two each, with a picture of it working. */
 export const WELCOME_STEPS: readonly WelcomeStep[] = [
   {
     title: 'Welcome to /dev/null++',
     text: 'A few extra powers for /dev/null. They’re already on, so there’s nothing to set up.',
-    picture: { kind: 'logo' },
+    scene: 'intro',
   },
   {
     title: 'Rewrite with AI',
     text: 'Polish a draft before you commit it. Add your own AI key in settings and a button shows up in the composer.',
-    picture: { kind: 'icon', icon: SPARKLES_ICON, lane: 2 },
+    scene: 'rewrite',
   },
   {
     title: 'Link preview',
     text: 'Press and hold a link to open the page right over your log. Let go early and it’s gone.',
-    picture: { kind: 'icon', icon: ICONS.link, lane: 3 },
+    scene: 'preview',
   },
   {
     title: 'Image peek',
     text: 'Press and hold a picture to see it big. Let go and it goes back.',
-    picture: { kind: 'icon', icon: ICONS.image, lane: 4 },
+    scene: 'peek',
   },
   {
     title: 'Picture-in-picture',
     text: 'Videos keep playing in a corner while you scroll and move between pages.',
-    picture: { kind: 'icon', icon: PIP_ICON, lane: 0 },
+    scene: 'pip',
   },
   {
     title: 'New commits, on their own',
     text: 'At the top of your log, new commits load by themselves. No more clicking the pill.',
-    picture: { kind: 'icon', icon: ICONS.commit, lane: 5 },
+    scene: 'commits',
+  },
+  {
+    title: 'Who to follow, as cards',
+    text: 'Swipe a card away and someone new takes its place. Follow from the card itself.',
+    scene: 'follow',
   },
   {
     title: 'You’re all set',
     text: 'Switch anything on or off from /dev/null++ in the menu, under Settings. Everything stays in this browser.',
-    picture: { kind: 'icon', icon: ICONS.check, lane: 1 },
+    scene: 'outro',
   },
 ];
 
@@ -108,6 +101,8 @@ export class Welcome {
   #dialog: HTMLDialogElement | null = null;
   #step = 0;
   #isClosing = false;
+  /** The step's moving picture, which is stopped whenever the step changes or the welcome goes. */
+  #picture: Picture | null = null;
 
   constructor(options: WelcomeOptions) {
     this.#options = options;
@@ -179,7 +174,7 @@ export class Welcome {
     const host = el('div');
 
     markOwned(host, WELCOME_ROLE);
-    host.attachShadow({ mode: 'open' }).append(el('style', {}, [styles]), dialog);
+    host.attachShadow({ mode: 'open' }).append(el('style', {}, [styles, motion]), dialog);
     // Keys pressed in the welcome must not reach the site's single-key shortcuts.
     host.addEventListener('keydown', (event) => {
       event.stopPropagation();
@@ -207,6 +202,7 @@ export class Welcome {
     this.#render();
     this.#lockScroll(true);
     dialog.showModal();
+    this.#picture?.play(prefersReducedMotion());
     // The dialog itself takes focus rather than the ✕ that comes first, so no button wears a focus ring until the
     // keyboard reaches it. The arrow keys page through from the start.
     dialog.focus();
@@ -261,6 +257,8 @@ export class Welcome {
   }
 
   #remove(): void {
+    this.#picture?.destroy();
+    this.#picture = null;
     this.#dialog?.close();
     this.#host?.remove();
     this.#host = null;
@@ -277,6 +275,7 @@ export class Welcome {
 
     this.#step = step;
     this.#render();
+    this.#picture?.play(prefersReducedMotion());
 
     if (prefersReducedMotion()) {
       return;
@@ -319,6 +318,11 @@ export class Welcome {
     const close = el('button', { className: 'close', attrs: { type: 'button', 'aria-label': 'Close' } }, [
       createSvgIcon(CLOSE_ICON, ''),
     ]);
+    const picture = createPicture(step.scene);
+
+    this.#picture?.destroy();
+    this.#picture = picture;
+
     const dots = WELCOME_STEPS.map((_, index) => {
       const dot = el('button', {
         className: 'dot',
@@ -367,7 +371,7 @@ export class Welcome {
       el('div', { className: 'card' }, [
         close,
         el('div', { className: 'content' }, [
-          this.#picture(step),
+          picture.element,
           el('div', { className: 'text' }, [
             el('h2', { attrs: { id: 'welcome-title' } }, [step.title]),
             el('p', {}, [step.text]),
@@ -377,24 +381,6 @@ export class Welcome {
       ]),
     );
     lead.focus();
-  }
-
-  #picture(step: WelcomeStep): HTMLElement {
-    const { picture } = step;
-
-    if (picture.kind === 'logo') {
-      return el('div', { className: 'picture', attrs: { 'data-kind': 'logo', 'aria-hidden': 'true' } }, [
-        createLogoMark('logo'),
-      ]);
-    }
-
-    const element = el('div', { className: 'picture', attrs: { 'aria-hidden': 'true' } }, [
-      el('span', { className: 'badge' }, [createSvgIcon(picture.icon, '')]),
-    ]);
-
-    element.style.setProperty('--tint', `var(--lane-${String(picture.lane)})`);
-
-    return element;
   }
 
   /** Holds the page behind still while the welcome is open. */

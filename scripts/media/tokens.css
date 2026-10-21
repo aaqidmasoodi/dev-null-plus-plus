@@ -1,0 +1,71 @@
+/*
+ * dev-null.sh's theme tokens (resources/css/app.css), copied from the live site, for the pictures rendered into the
+ * README. In the extension the pictures read these from the page they sit on.
+ */
+
+:root {
+  --background: #f6f7f8;
+  --foreground: #121417;
+  --card: #fff;
+  --card-foreground: #121417;
+  --popover: #fff;
+  --popover-foreground: #121417;
+  --primary: #3b6fe0;
+  --primary-hover: #2e5ccb;
+  --primary-foreground: #fff;
+  --primary-soft: #e8effc;
+  --muted: #eef0f2;
+  --muted-foreground: #5b616b;
+  --accent: #eef0f2;
+  --accent-foreground: #121417;
+  --border: #e1e4e8;
+  --input: #d3d7dd;
+  --ring: #3b6fe0;
+  --destructive: #c92a2a;
+  --lane-0: #d9480f;
+  --lane-1: #2f9e44;
+  --lane-2: #9c36b5;
+  --lane-3: #0c8599;
+  --lane-4: #c2255c;
+  --lane-5: #b7791f;
+  --radius: 0.5rem;
+  --font-geist: 'Geist Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-geist-mono: 'Geist Mono', ui-monospace, monospace;
+
+  color-scheme: light;
+}
+
+:root.dark {
+  --background: #111112;
+  --foreground: #ececec;
+  --card: #18181a;
+  --card-foreground: #ececec;
+  --popover: #1f1f22;
+  --popover-foreground: #e7e9ec;
+  --primary: #7aa2f7;
+  --primary-hover: #94b5f9;
+  --primary-foreground: #111112;
+  --primary-soft: #18233a;
+  --muted: #232326;
+  --muted-foreground: #a1a1a6;
+  --accent: #232326;
+  --accent-foreground: #ececec;
+  --border: #2a2a2d;
+  --input: #36363a;
+  --ring: #7aa2f7;
+  --destructive: #ff6b6b;
+  --lane-0: #ff8a4c;
+  --lane-1: #51cf66;
+  --lane-2: #da77f2;
+  --lane-3: #3bc9db;
+  --lane-4: #f06595;
+  --lane-5: #fcc419;
+
+  color-scheme: dark;
+}
+
+html,
+body {
+  margin: 0;
+  background: transparent;
+}

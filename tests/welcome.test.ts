@@ -33,6 +33,20 @@ describe('the welcome', () => {
     }
   });
 
+  it("shows each step's picture, and stops it when the step changes", async () => {
+    const welcome = await start();
+    const picture = (): string | undefined =>
+      document.body.querySelector('div')?.shadowRoot?.querySelector<HTMLElement>('.picture')?.dataset.scene;
+
+    expect(picture()).toBe(WELCOME_STEPS[0]?.scene);
+
+    const host = document.body.querySelector('div');
+
+    host?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
+    expect(picture()).toBe(WELCOME_STEPS[1]?.scene);
+    welcome.close();
+  });
+
   it('opens the first time, and never by itself once seen', async () => {
     const first = await start();
 
