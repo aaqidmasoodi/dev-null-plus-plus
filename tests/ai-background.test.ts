@@ -221,6 +221,7 @@ describe('rewrite', () => {
       imagePeek: true,
       pictureInPicture: true,
       autoPictureInPicture: true,
+      whoToFollowCards: true,
     },
   });
   const json = (value: unknown): Promise<string> => Promise.resolve(JSON.stringify(value));
@@ -529,6 +530,7 @@ describe('message and data validation', () => {
         imagePeek: true,
         pictureInPicture: true,
         autoPictureInPicture: true,
+        whoToFollowCards: true,
       },
     });
     expect(parseSettings({ features: { autoLoadNewCommits: false, unknown: true } })).toEqual({
@@ -539,6 +541,7 @@ describe('message and data validation', () => {
         imagePeek: true,
         pictureInPicture: true,
         autoPictureInPicture: true,
+        whoToFollowCards: true,
       },
     });
     expect(parseAiStatus({ provider: 'openai', model: 'gpt-5' })).toEqual({ provider: 'openai', model: 'gpt-5' });

@@ -211,3 +211,116 @@ export function respondToPillLikeTheSite(newIds: string[]): () => void {
     document.removeEventListener('click', onClick);
   };
 }
+
+/** A made-up person for the "Who to follow" fixtures. Never a real account. */
+export interface FixturePerson {
+  username: string;
+  name: string;
+  bio?: string;
+  reason?: string;
+  lane?: number;
+}
+
+export const FIXTURE_PEOPLE: FixturePerson[] = [
+  {
+    username: 'adapark',
+    name: 'Ada Park',
+    bio: 'compilers, coffee, and too many side projects',
+    reason: 'Followed by 3 you follow',
+    lane: 2,
+  },
+  {
+    username: 'tomasreyes',
+    name: 'Tomás Reyes',
+    bio: 'shipping laravel apps from a boat',
+    reason: '128 followers',
+    lane: 3,
+  },
+  { username: 'minjikim', name: 'Minji Kim', reason: '12 followers', lane: 4 },
+  { username: 'olu', name: 'Olu Adeyemi', bio: 'rust on weekends', reason: 'Followed by 1 you follow', lane: 1 },
+];
+
+/** A made-up avatar address, for a test to answer with a picture it draws itself. */
+export const fixtureAvatar = (username: string): string =>
+  `https://avatars.githubusercontent.com/u/${String(1000 + username.length)}?v=4&s=80&u=${username}`;
+
+/** One suggested person's row, as the site's SuggestedUserRow renders it in the aside (resources/js/components/who-to-follow.tsx). */
+export function suggestedRowHtml(person: FixturePerson): string {
+  const details = [
+    person.bio === undefined
+      ? ''
+      : `<span class="block truncate font-mono text-xs text-muted-foreground" title="${person.bio}"><span aria-hidden="true" class="text-muted-foreground/60"># </span>${person.bio}</span>`,
+    person.reason === undefined
+      ? ''
+      : `<span class="block truncate text-xs text-muted-foreground" title="${person.reason}">${person.reason}</span>`,
+  ].join('');
+
+  return `<li class="grid grid-cols-1 grid-rows-[1fr]"><div class="min-h-0"><div class="flex items-center gap-3">
+    <span class="flex min-w-0 flex-1"><a href="/@${person.username}" class="group flex min-w-0 flex-1 items-center gap-3">
+      <span class="inline-flex shrink-0"><span data-slot="avatar" class="relative flex size-9 shrink-0 overflow-hidden rounded-full bg-muted"><img data-slot="avatar-image" class="aspect-square size-full" alt="${person.name}" src="${fixtureAvatar(person.username)}"></span></span>
+      <span class="min-w-0"><span class="block truncate text-sm font-semibold group-hover:underline">${person.name}</span><span class="flex min-w-0 items-center gap-1.5 font-mono text-xs text-muted-foreground"><span aria-hidden="true" class="size-1.5 shrink-0 rounded-full" style="background: var(--lane-${String(person.lane ?? 0)})"></span><span class="truncate">@${person.username}</span></span></span>
+    </a></span>
+    <div class="flex shrink-0 items-center gap-0.5">
+      <button type="button" data-test="suggested-follow-button" aria-label="Follow @${person.username}" class="shrink-0 rounded-md p-1.5"><svg class="size-4"></svg></button>
+      <button type="button" data-test="suggested-dismiss-button" aria-label="Not interested. @${person.username} won't be suggested again." class="shrink-0 rounded-md p-1.5"><svg class="size-4"></svg></button>
+    </div>
+  </div><div class="mt-1.5 min-h-8 pl-12">${details}</div></div></li>`;
+}
+
+/** The aside's "Who to follow" block, signed in, with three people shown. */
+export function whoToFollowHtml(people: FixturePerson[] = FIXTURE_PEOPLE.slice(0, 3)): string {
+  return `<section aria-labelledby="aside-who-to-follow" class="-mt-4 border-t pt-4">
+    <div class="mb-3 flex items-center justify-between gap-2"><h2 id="aside-who-to-follow" class="text-sm font-semibold">Who to follow</h2></div>
+    <ul class="space-y-4">${people.map(suggestedRowHtml).join('')}</ul>
+  </section>`;
+}
+
+/**
+ * Stands in for the site's handlers: following flips the button's label once the server would have answered, and
+ * "Not interested" swaps the next spare into the dismissed person's place. Counts each, as the server would see them.
+ */
+export function actLikeTheSite(
+  spares: FixturePerson[],
+  signal: AbortSignal,
+): { follows: string[]; dismissals: string[] } {
+  const seen = { follows: [] as string[], dismissals: [] as string[] };
+
+  document.addEventListener(
+    'click',
+    (event) => {
+      const button = (event.target as Element).closest<HTMLElement>('[data-test^="suggested-"]');
+      const row = button?.closest('li');
+
+      if (button === null || row === null || row === undefined) {
+        return;
+      }
+
+      const username = /@([\w-]+)/.exec(button.getAttribute('aria-label') ?? '')?.[1] ?? '';
+
+      if (button.dataset.test === 'suggested-follow-button') {
+        seen.follows.push(username);
+
+        const isFollowing = button.getAttribute('aria-label')?.startsWith('Unfollow') === true;
+
+        setTimeout(() => {
+          button.setAttribute('aria-label', isFollowing ? `Follow @${username}` : `Unfollow @${username}`);
+        }, 50);
+
+        return;
+      }
+
+      seen.dismissals.push(username);
+
+      const spare = spares.shift();
+
+      if (spare === undefined) {
+        row.remove();
+      } else {
+        row.outerHTML = suggestedRowHtml(spare);
+      }
+    },
+    { signal },
+  );
+
+  return seen;
+}

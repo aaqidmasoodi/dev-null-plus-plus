@@ -1,0 +1,238 @@
+/*
+ * "Who to follow" as a stack of cards. It lives in a shadow root next to the site's list and reads the site's theme
+ * tokens, so it matches light and dark mode. The details sit on the card under the picture, never over it, so they
+ * always read clearly. Buttons follow the site's (components/ui/button.tsx).
+ */
+
+:host {
+  all: initial;
+  display: block;
+  color: var(--card-foreground, var(--foreground, CanvasText));
+  font-family: var(--font-geist, ui-sans-serif, system-ui, sans-serif);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* The cards lie on top of each other; the ones behind peek out below, a little smaller, and solid, so nothing shows through. */
+/* No arrows or count: just the cards. */
+.stage {
+  display: grid;
+  max-width: 22rem;
+  padding-bottom: 1rem;
+  touch-action: pan-y;
+  user-select: none;
+}
+
+.card {
+  grid-area: 1 / 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--border, GrayText);
+  border-radius: calc(var(--radius, 0.5rem) * 1.5);
+  background: var(--card, Canvas);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.06);
+  transform-origin: 50% 100%;
+  transition:
+    transform 260ms cubic-bezier(0.2, 0, 0, 1),
+    opacity 260ms;
+}
+
+.card[data-depth='0'] {
+  z-index: 3;
+  cursor: grab;
+  box-shadow: 0 8px 24px -12px rgb(0 0 0 / 0.35);
+}
+
+.card[data-depth='1'] {
+  z-index: 2;
+  transform: translateY(0.5rem) scale(0.95);
+}
+
+.card[data-depth='2'] {
+  z-index: 1;
+  transform: translateY(1rem) scale(0.9);
+}
+
+.card.dragging {
+  cursor: grabbing;
+  transition: none;
+}
+
+.picture {
+  position: relative;
+  aspect-ratio: 1;
+  overflow: hidden;
+  background: var(--muted, Canvas);
+  cursor: pointer;
+}
+
+.picture img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  -webkit-user-drag: none;
+}
+
+/* The larger avatar fades in over the small one once it has arrived. */
+.picture .sharp {
+  opacity: 0;
+  transition: opacity 200ms ease-out;
+}
+
+.picture .sharp.loaded {
+  opacity: 1;
+}
+
+.initials {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--muted-foreground, GrayText);
+  font-family: var(--font-geist-mono, ui-monospace, monospace);
+  font-size: 3rem;
+}
+
+.info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: 0.75rem 0.875rem 0.875rem;
+  border-top: 1px solid var(--border, GrayText);
+}
+
+.name {
+  overflow: hidden;
+  color: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.5rem;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.name:hover {
+  text-decoration: underline;
+}
+
+.username {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.375rem;
+  color: var(--muted-foreground, GrayText);
+  font-family: var(--font-geist-mono, ui-monospace, monospace);
+  font-size: 0.75rem;
+}
+
+.username .dot {
+  width: 0.375rem;
+  height: 0.375rem;
+  flex: none;
+  border-radius: 999px;
+}
+
+.bio,
+.reason {
+  margin: 0;
+  overflow: hidden;
+  color: var(--muted-foreground, GrayText);
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+.bio {
+  display: -webkit-box;
+  margin-top: 0.375rem;
+  font-family: var(--font-geist-mono, ui-monospace, monospace);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow-wrap: anywhere;
+}
+
+.reason {
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.actions button {
+  display: inline-flex;
+  height: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  border: 1px solid transparent;
+  border-radius: calc(var(--radius, 0.5rem) - 2px);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.actions svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.dismiss {
+  width: 2.25rem;
+  flex: none;
+  padding: 0;
+  border-color: var(--input, var(--border, GrayText)) !important;
+  background: var(--background, Canvas);
+  color: var(--muted-foreground, GrayText);
+}
+
+.dismiss:hover {
+  background: var(--accent, Canvas);
+  color: var(--accent-foreground, CanvasText);
+}
+
+.follow {
+  flex: 1;
+  padding: 0 1rem;
+  background: var(--primary, AccentColor);
+  color: var(--primary-foreground, AccentColorText);
+}
+
+.follow:hover {
+  background: var(--primary-hover, var(--primary, AccentColor));
+}
+
+.follow.following {
+  border-color: var(--input, var(--border, GrayText));
+  background: var(--background, Canvas);
+  color: var(--primary, AccentColor);
+}
+
+.follow.following:hover {
+  background: var(--accent, Canvas);
+}
+
+button:focus-visible,
+.name:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--ring, Highlight) 50%, transparent);
+  outline-offset: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card,
+  .picture .sharp {
+    transition: none;
+  }
+}

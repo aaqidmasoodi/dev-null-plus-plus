@@ -31,6 +31,8 @@ Every feature can be switched off on the settings page.
   to a corner; scroll back and it returns to its post. Pop it out with the button under the video and it stays out on
   every page until you play it here or close it. Drag it to any corner and resize it from its corners. Works for every
   video provider the site plays.
+- **Who to follow cards.** Who to follow becomes a stack of cards with a big picture. Swipe a card away, as with its
+  ✕, and the site brings in someone new at the back of the stack. Follow from the card, through the site's own button.
 
 ## Install (development build)
 
@@ -86,6 +88,7 @@ src/
     links.ts                    Which links can be previewed
     images.ts                   Which images can be peeked at
     embeds.ts                   Video embeds, and the bars along the screen's edges
+    who-to-follow.ts            The people Who to follow suggests
   features/
     nav-item/                   The "/dev/null++" link in the left navigation
     settings-page/              The settings page it opens, built from sections
@@ -94,6 +97,7 @@ src/
     link-preview/               Press and hold a link to preview it in a private window
     image-peek/                 Press and hold an image to see it big
     pip/                        Picture-in-picture for videos
+    who-to-follow/              Who to follow as swipeable cards
     welcome/                    The tour shown the first time the site opens
 ```
 
