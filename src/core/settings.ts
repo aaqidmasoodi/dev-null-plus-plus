@@ -20,6 +20,8 @@ export interface Settings {
     pictureInPicture: boolean;
     /** A playing video floating by itself when scrolled past or its page is left. */
     autoPictureInPicture: boolean;
+    /** "Who to follow" as a stack of swipeable cards instead of rows. */
+    whoToFollowCards: boolean;
   };
 }
 
@@ -35,6 +37,7 @@ export const DEFAULT_SETTINGS: Settings = {
     imagePeek: true,
     pictureInPicture: true,
     autoPictureInPicture: true,
+    whoToFollowCards: true,
   },
 };
 

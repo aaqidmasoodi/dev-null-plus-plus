@@ -30,6 +30,8 @@ import { SettingsNavigator } from '@/features/settings-page/navigator';
 import { aboutSection } from '@/features/settings-page/sections';
 import { SettingsPage } from '@/features/settings-page/settings-page';
 import { Welcome } from '@/features/welcome/welcome';
+import { WhoToFollowCards } from '@/features/who-to-follow/cards';
+import { whoToFollowSection } from '@/features/who-to-follow/settings-section';
 import { peekCandidate } from '@/site/images';
 import { isPlainClick } from '@/site/navigate';
 import { findHomePath, isFullScreenLayout, LAYOUT_ATTRIBUTES } from '@/site/selectors';
@@ -111,6 +113,7 @@ export default defineContentScript({
         linkPreviewSection({ store, saveSettings: writeSettings, signal: ctx.signal }),
         imagePeekSection({ store, saveSettings: writeSettings, signal: ctx.signal }),
         pipSection({ store, saveSettings: writeSettings, signal: ctx.signal }),
+        whoToFollowSection({ store, saveSettings: writeSettings, signal: ctx.signal }),
       ],
     });
     const composerAi = new ComposerAi({
@@ -131,6 +134,19 @@ export default defineContentScript({
       }
     };
     const autoLoad = new AutoLoadNewCommits({ store, signal: ctx.signal });
+    // "Who to follow" as swipeable cards, following the site's own rows.
+    const whoToFollow = new WhoToFollowCards({
+      enabled: () => store.value.settings.features.whoToFollowCards,
+      signal: ctx.signal,
+    });
+    /** Keeps the cards in step with the site's rows. Separate, so a failure here touches nothing else. */
+    const syncWhoToFollow = (): void => {
+      try {
+        whoToFollow.ensure();
+      } catch (error) {
+        logger.error('Could not update the suggestions.', error);
+      }
+    };
     const preview = new PreviewDialog();
     const imagePeekOn = (): boolean => store.value.settings.features.imagePeek;
 
@@ -192,6 +208,7 @@ export default defineContentScript({
       syncComposer();
       syncAutoLoad();
       welcome.showIfPending();
+      syncWhoToFollow();
 
       try {
         settingsNavigator.settle();
@@ -223,6 +240,7 @@ export default defineContentScript({
     store.subscribe(() => {
       syncComposer();
       syncAutoLoad();
+      syncWhoToFollow();
     }, ctx.signal);
 
     // Reaching the top of the log loads commits that were waiting, and coming back to the tab looks again. Scroll is
@@ -272,6 +290,7 @@ export default defineContentScript({
       imagePeek.destroy();
       pip.destroy();
       welcome.destroy();
+      whoToFollow.destroy();
       removeTakeover();
     });
 

@@ -17,6 +17,7 @@ const connected: ExtensionState = {
       imagePeek: true,
       pictureInPicture: true,
       autoPictureInPicture: true,
+      whoToFollowCards: true,
     },
   },
   ai: { provider: 'groq', model: 'llama-3.3-70b-versatile' },
@@ -161,6 +162,7 @@ describe.each([
           imagePeek: true,
           pictureInPicture: true,
           autoPictureInPicture: true,
+          whoToFollowCards: true,
         },
       },
     });
@@ -180,6 +182,7 @@ describe.each([
           imagePeek: true,
           pictureInPicture: true,
           autoPictureInPicture: true,
+          whoToFollowCards: true,
         },
       },
     });

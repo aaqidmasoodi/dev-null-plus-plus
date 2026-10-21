@@ -17,6 +17,7 @@ const state = (autoLoadNewCommits = true): ExtensionState => ({
       imagePeek: true,
       pictureInPicture: true,
       autoPictureInPicture: true,
+      whoToFollowCards: true,
     },
   },
   ai: null,
