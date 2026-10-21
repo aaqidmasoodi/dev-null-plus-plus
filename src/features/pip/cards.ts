@@ -6,7 +6,7 @@ import { PLAYER_ROLE } from './player';
 
 export const CARDS_ROLE = 'pip-cards';
 
-const PIP_ICON = [
+export const PIP_ICON = [
   'M21 9V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v10c0 1.1.9 2 2 2h4',
   'M14 13h6a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-6a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2z',
 ] as const;

@@ -6,6 +6,9 @@ Install it and that is it. dev/null++ adds **/dev/null++** to the site's left na
 It opens a settings page inside dev-null.sh, at `#dev-null-plus-plus` on whatever page you are on. There is no popup
 and no options page. The toolbar icon opens the same page.
 
+The first time you open the site after installing, a short tour shows what it adds. It opens once, and **Show the
+welcome again** on the settings page brings it back.
+
 ## Features
 
 Every feature can be switched off on the settings page.
@@ -89,6 +92,7 @@ src/
     link-preview/               Press and hold a link to preview it in a private window
     image-peek/                 Press and hold an image to see it big
     pip/                        Picture-in-picture for videos
+    welcome/                    The tour shown the first time the site opens
 ```
 
 A few rules keep this working while dev-null.sh deploys many times a day.
