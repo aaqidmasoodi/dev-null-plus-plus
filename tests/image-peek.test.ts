@@ -243,6 +243,20 @@ describe('press and hold an image', () => {
     expect(click().defaultPrevented).toBe(false);
   });
 
+  it('never opens the picture when let go, however long it was held', () => {
+    pointer('pointerdown');
+    vi.advanceTimersByTime(PEEK_DELAY_MS + 5 * 60_000);
+    pointer('pointerup');
+
+    // The click the five-minute hold ends in is still the end of the hold, not a click.
+    expect(click().defaultPrevented).toBe(true);
+
+    vi.advanceTimersByTime(RETURN_MS + 200);
+
+    // And the next one is an ordinary click again.
+    expect(click().defaultPrevented).toBe(false);
+  });
+
   it('goes back when let go while still growing', () => {
     pointer('pointerdown');
     vi.advanceTimersByTime(PEEK_DELAY_MS + GROW_MS / 3);

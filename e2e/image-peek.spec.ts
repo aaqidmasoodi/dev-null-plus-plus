@@ -85,6 +85,20 @@ test('holding an image peeks at it, and letting go puts it back', async ({ page,
   expect(errors).toEqual([]);
 });
 
+test('a long hold still only puts the image back when let go', async ({ page }) => {
+  await addImages(page);
+  await press(page);
+  await expect(page.locator('[data-dnpp="image-peek"]')).toHaveCount(1);
+  // Longer than any fixed window after the peek starts.
+  await page.waitForTimeout(4_000);
+  await page.mouse.up();
+
+  await expect(page.locator('[data-dnpp="image-peek"]')).toHaveCount(0);
+  await page.waitForTimeout(300);
+  // The site's viewer did not open.
+  expect(new URL(page.url()).hash).toBe('');
+});
+
 test('a quick click still opens the image as usual', async ({ page }) => {
   await addImages(page);
   // A real click: press and release back to back. A timed hold can drift past a click on a slow machine.
