@@ -1,15 +1,17 @@
 import { el, markOwned, ownedSelector } from '@/core/dom';
-import { isReadyToPeek, peekCandidate } from '@/site/images';
+import { isReadyToPeek, largerAvatar, peekCandidate } from '@/site/images';
 
 import {
   drawnRect,
   frameAt,
   intersect,
+  PEEK_MARGIN,
   peekRect,
   restingFrame,
   type ObjectFit,
   type PeekFrame,
   type Rect,
+  type Size,
 } from './geometry';
 
 export const PEEK_ROLE = 'image-peek';
@@ -32,20 +34,55 @@ const POP_SCALE = 1.025;
 const PEEK_RADIUS = 12;
 /** How long after a peek the click it ends in is still recognised, and swallowed. */
 const SWALLOW_MS = 3_000;
+/** The most an avatar grows to, across: big enough to see the face, not a wall of pixels. */
+const AVATAR_PEEK_PX = 480;
+/** How long the larger picture takes to fade in over the smaller one. */
+const SHARPEN_MS = 180;
 
 const CSS = `
   :host { all: initial; position: fixed; inset: 0; z-index: 2147483646; pointer-events: none; contain: strict; }
   .backdrop { position: absolute; inset: 0; background: rgb(0 0 0 / 0.6); opacity: 0; will-change: opacity; }
+  .copy { position: absolute; transform-origin: 0 0; will-change: transform, clip-path; }
   img {
     position: absolute;
+    inset: 0;
     display: block;
+    width: 100%;
+    height: 100%;
     max-width: none;
-    transform-origin: 0 0;
-    will-change: transform, clip-path;
     user-select: none;
     -webkit-user-drag: none;
   }
 `;
+
+/**
+ * A larger copy of the picture, asked for as the press begins: the peek grows to its size straight away, showing the
+ * picture already on the page, and the larger one fades in over it once it has arrived.
+ */
+interface Larger {
+  picture: HTMLImageElement;
+  /** The size the peek is laid out for, in CSS pixels. */
+  natural: Size;
+}
+
+/** For a GitHub avatar, the same avatar at the size the peek will show it, on this screen; for anything else, `null`. */
+function askForLarger(image: HTMLImageElement): Larger | null {
+  const room = Math.min(window.innerWidth, window.innerHeight) * (1 - 2 * PEEK_MARGIN);
+  const across = Math.min(room, AVATAR_PEEK_PX);
+  const src = largerAvatar(image.currentSrc || image.src, across * window.devicePixelRatio);
+
+  if (src === null) {
+    return null;
+  }
+
+  const picture = new Image();
+  const shape = image.naturalWidth > 0 && image.naturalHeight > 0 ? image.naturalHeight / image.naturalWidth : 1;
+
+  picture.referrerPolicy = 'no-referrer';
+  picture.src = src;
+
+  return { picture, natural: { width: across, height: across * shape } };
+}
 
 function prefersReducedMotion(): boolean {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -109,7 +146,8 @@ class Peek {
   readonly #image: HTMLImageElement;
   readonly #host: HTMLElement;
   readonly #backdrop: HTMLElement;
-  readonly #copy: HTMLImageElement;
+  /** What moves: a frame holding the copy of the picture, and the larger one once it is in. */
+  readonly #copy: HTMLElement;
   readonly #rect: Rect;
   readonly #onGone: () => void;
   #hiding: Animation | null = null;
@@ -117,17 +155,20 @@ class Peek {
   #state: 'growing' | 'shown' | 'returning' | 'gone' = 'growing';
   #backstop = 0;
 
-  constructor(image: HTMLImageElement, onGone: () => void) {
+  constructor(image: HTMLImageElement, onGone: () => void, larger: Larger | null = null) {
     this.#image = image;
     this.#onGone = onGone;
 
-    const natural = { width: image.naturalWidth, height: image.naturalHeight };
+    const natural = larger?.natural ?? { width: image.naturalWidth, height: image.naturalHeight };
     const shown = image.getBoundingClientRect();
+    const isLargerIn = larger !== null && larger.picture.complete && larger.picture.naturalWidth > 0;
+    const picture = el('img', { attrs: { alt: image.alt, decoding: 'sync', draggable: 'false' } });
 
+    // Already in, from this press's head start or an earlier peek, the larger picture shows from the first frame.
+    picture.src = isLargerIn ? larger.picture.src : image.currentSrc || image.src;
     this.#rect = peekRect({ width: window.innerWidth, height: window.innerHeight }, natural, shown);
     this.#backdrop = el('div', { className: 'backdrop' });
-    this.#copy = el('img', { attrs: { alt: image.alt, decoding: 'sync', draggable: 'false' } });
-    this.#copy.src = image.currentSrc || image.src;
+    this.#copy = el('div', { className: 'copy' }, [picture]);
     Object.assign(this.#copy.style, {
       left: `${String(this.#rect.left)}px`,
       top: `${String(this.#rect.top)}px`,
@@ -137,6 +178,15 @@ class Peek {
     this.#host = el('div', { attrs: { 'aria-hidden': 'true' } });
     markOwned(this.#host, PEEK_ROLE);
     this.#host.attachShadow({ mode: 'open' }).append(el('style', {}, [CSS]), this.#backdrop, this.#copy);
+
+    if (larger !== null && !isLargerIn) {
+      larger.picture.decode().then(
+        () => {
+          this.#sharpen(larger.picture.src);
+        },
+        () => undefined,
+      );
+    }
   }
 
   get image(): HTMLImageElement {
@@ -260,6 +310,36 @@ class Peek {
     this.#finish();
   }
 
+  /**
+   * The larger picture has arrived: it fades in over the smaller one, in the same place and at the same size, wherever
+   * the peek is in its flight, so the picture only gets sharper.
+   */
+  #sharpen(src: string): void {
+    if (this.#state === 'gone') {
+      return;
+    }
+
+    const sharp = el('img', {
+      attrs: { alt: '', decoding: 'sync', draggable: 'false', referrerpolicy: 'no-referrer' },
+    });
+
+    sharp.src = src;
+    sharp.decode().then(
+      () => {
+        if (this.#state === 'gone') {
+          return;
+        }
+
+        this.#copy.append(sharp);
+
+        if (!prefersReducedMotion()) {
+          sharp.animate([{ opacity: 0 }, { opacity: 1 }], { duration: SHARPEN_MS, easing: 'ease-out' });
+        }
+      },
+      () => undefined,
+    );
+  }
+
   /** Runs `then` when the current animations finish, or after `ms` in case they never report back. */
   #whenMoved(ms: number, then: () => void): void {
     const moving = this.#moving;
@@ -326,6 +406,8 @@ interface Press {
   timer: number;
   /** Set while held on a picture that is still loading. */
   waiting: AbortController | null;
+  /** A larger copy of the picture, on its way, for an avatar. */
+  larger: Larger | null;
 }
 
 /**
@@ -416,6 +498,8 @@ export class ImagePeek {
       pointerId: event.pointerId,
       timer: window.setTimeout(this.#startPeek, PEEK_DELAY_MS),
       waiting: null,
+      // Asked for now, so the wait before the peek is a head start on loading it.
+      larger: askForLarger(image),
     };
   };
 
@@ -452,11 +536,15 @@ export class ImagePeek {
     press.waiting?.abort();
     this.#swallowClickOn(press.image);
 
-    const peek = new Peek(press.image, () => {
-      if (this.#peek === peek) {
-        this.#peek = null;
-      }
-    });
+    const peek = new Peek(
+      press.image,
+      () => {
+        if (this.#peek === peek) {
+          this.#peek = null;
+        }
+      },
+      press.larger,
+    );
 
     this.#peek = peek;
     peek.grow();

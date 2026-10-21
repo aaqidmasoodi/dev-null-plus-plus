@@ -97,8 +97,10 @@ The extension has three parts, trusted in this order:
 
 **Image peeks**
 
-- A peek is a copy of a picture already on the page, drawn from the same address in our own overlay. It loads nothing
-  new and sends nothing anywhere.
+- A peek is a copy of a picture already on the page, drawn from the same address in our own overlay. It sends nothing
+  anywhere. The one thing it loads is a GitHub avatar at the size the peek shows it: the same address on GitHub's
+  avatar host that the site already loads it from, with only its size changed, and no referrer
+  (`largerAvatar` in `src/site/images.ts`).
 - The site's own picture is hidden only by an animation while the copy is out, and never changed, so React's markup
   is never touched.
 
