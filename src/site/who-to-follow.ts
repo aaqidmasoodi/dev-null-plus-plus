@@ -12,6 +12,7 @@ export const WHO_TO_FOLLOW_SECTIONS =
   'section[aria-labelledby="aside-who-to-follow"], section[aria-labelledby="log-who-to-follow"]';
 
 const FOLLOW_BUTTON = '[data-test="suggested-follow-button"]';
+const MORE_BUTTON = '[data-test="who-to-follow-refresh"]';
 const DISMISS_BUTTON = '[data-test="suggested-dismiss-button"]';
 const AVATAR_IMAGE = 'img[data-slot="avatar-image"]';
 const AVATAR_FALLBACK = '[data-slot="avatar-fallback"]';
@@ -34,6 +35,16 @@ export interface Suggestion {
   link: HTMLAnchorElement;
   follow: HTMLElement;
   dismiss: HTMLElement | null;
+}
+
+/**
+ * The block's "Suggest other people" button, when it can be pressed: it moves to the next page of the day's picks and
+ * replaces the list with it. Not there once the block has run out of people, and held off while it is already loading.
+ */
+export function moreSuggestionsButton(section: Element): HTMLButtonElement | null {
+  const button = section.querySelector<HTMLButtonElement>(MORE_BUTTON);
+
+  return button === null || button.disabled || button.getAttribute('aria-disabled') === 'true' ? null : button;
 }
 
 /** The list of rows in a block, once it holds people rather than the loading placeholders. */

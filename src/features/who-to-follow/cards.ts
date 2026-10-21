@@ -1,7 +1,13 @@
 import { createSvgIcon, el, markOwned, ownedSelector } from '@/core/dom';
 import { CLOSE_ICON } from '@/core/icons';
 import { largerAvatar } from '@/site/images';
-import { readSuggestions, suggestionList, WHO_TO_FOLLOW_SECTIONS, type Suggestion } from '@/site/who-to-follow';
+import {
+  moreSuggestionsButton,
+  readSuggestions,
+  suggestionList,
+  WHO_TO_FOLLOW_SECTIONS,
+  type Suggestion,
+} from '@/site/who-to-follow';
 
 import styles from './cards.css?inline';
 
@@ -22,6 +28,10 @@ const FLICK_SPEED = 0.5;
 const SLOP_PX = 6;
 /** How many people show in the stack at once: the one on top, and two peeking out behind. */
 const STACK = 3;
+/** How often the top card nudges, to show it can be swiped, until it has been; and the first time, after it appears. */
+const NUDGE_EVERY_MS = 30_000;
+const FIRST_NUDGE_MS = 5_000;
+
 /** Where each card in the stack rests, top first: how far down, and how small. The CSS rests them the same. */
 const RESTING = [
   { y: 0, scale: 1 },
@@ -82,6 +92,14 @@ class Deck {
   #drawn = '';
   #drag: Drag | null = null;
   #isMoving = false;
+  /** How many people have been swiped away here. */
+  #swipes = 0;
+  #top: string | null = null;
+  /**
+   * The swipe the site was last asked for more people after. At most once a swipe, so a site with nobody left to
+   * suggest is not asked over and over, only each time someone is swiped away.
+   */
+  askedAtSwipe = 0;
 
   constructor() {
     this.host = el('div');
@@ -104,6 +122,15 @@ class Deck {
     this.#stage.addEventListener('pointermove', this.#onPointerMove);
     this.#stage.addEventListener('pointerup', this.#onPointerUp);
     this.#stage.addEventListener('pointercancel', this.#onPointerUp);
+  }
+
+  /** How many people have been swiped away here: none, and the stack is as the site gave it, and it nudges. */
+  get swipes(): number {
+    return this.#swipes;
+  }
+
+  get size(): number {
+    return this.#people.length;
   }
 
   /**
@@ -141,8 +168,25 @@ class Deck {
       return;
     }
 
+    const previousTop = this.#top;
+
     this.#drawn = drawn;
+    this.#top = shown[0]?.username ?? null;
     this.#stage.replaceChildren(...shown.map((person, depth) => this.#card(person, depth)).reverse());
+
+    // Someone new on top without a swipe, as when the site sends the next people: they come up into place, not pop in.
+    if (previousTop !== null && previousTop !== this.#top && !this.#isMoving && !prefersReducedMotion()) {
+      this.#topCard()?.animate(
+        [
+          { transform: risen(1, 0), opacity: 0.6 },
+          { transform: 'none', opacity: 1 },
+        ],
+        {
+          duration: 260,
+          easing: 'cubic-bezier(0.2, 0, 0, 1)',
+        },
+      );
+    }
   }
 
   #card(person: Suggestion, depth: number): HTMLElement {
@@ -291,7 +335,7 @@ class Deck {
     return el('div', { className: 'actions' }, [dismiss, follow]);
   }
 
-  #top(): HTMLElement | null {
+  #topCard(): HTMLElement | null {
     return this.#stage.querySelector('.card[data-depth="0"]');
   }
 
@@ -327,6 +371,8 @@ class Deck {
       return;
     }
 
+    this.#swipes++;
+
     if (!person.isFollowing && person.dismiss !== null) {
       person.dismiss.click();
     }
@@ -335,10 +381,12 @@ class Deck {
       // Gone from the rows, they leave the stack with the next update; still there, they go to the back.
       this.#order = [...this.#order.filter((username) => username !== person.username), person.username];
       this.#people = [...this.#people.filter((other) => other !== person), person];
+      // The card that rose into place is the new top: it is drawn there, not brought up a second time.
+      this.#top = this.#people[0]?.username ?? null;
       this.#isMoving = false;
       this.#draw();
     };
-    const top = this.#top();
+    const top = this.#topCard();
 
     if (top === null || prefersReducedMotion()) {
       settle();
@@ -363,8 +411,47 @@ class Deck {
       .finished.then(settle, settle);
   }
 
+  /**
+   * A small swipe and back, with the next card peeking up, so it is plain the cards can be swiped. Only while they
+   * show, nobody is touching them, and nobody has swiped yet.
+   */
+  nudge(): void {
+    const top = this.#topCard();
+    const next = this.#stage.querySelector<HTMLElement>('.card[data-depth="1"]');
+    const shown = this.host.getBoundingClientRect();
+
+    if (
+      top === null ||
+      this.#swipes > 0 ||
+      this.#isMoving ||
+      this.#drag !== null ||
+      prefersReducedMotion() ||
+      document.visibilityState !== 'visible' ||
+      shown.bottom <= 0 ||
+      shown.top >= window.innerHeight
+    ) {
+      return;
+    }
+
+    const timing = { duration: 900, easing: 'ease-in-out' };
+
+    top.animate(
+      [
+        { transform: 'none' },
+        { transform: 'translateX(-28px) rotate(-1.4deg)', offset: 0.35 },
+        { transform: 'translateX(8px) rotate(0.4deg)', offset: 0.7 },
+        { transform: 'none' },
+      ],
+      timing,
+    );
+    next?.animate(
+      [{ transform: risen(1, 0) }, { transform: risen(1, 0.35), offset: 0.35 }, { transform: risen(1, 0) }],
+      timing,
+    );
+  }
+
   readonly #onPointerDown = (event: PointerEvent): void => {
-    const top = this.#top();
+    const top = this.#topCard();
 
     if (
       event.button !== 0 ||
@@ -390,7 +477,7 @@ class Deck {
 
   readonly #onPointerMove = (event: PointerEvent): void => {
     const drag = this.#drag;
-    const top = this.#top();
+    const top = this.#topCard();
 
     if (drag === null || top === null || event.pointerId !== drag.pointerId) {
       return;
@@ -428,7 +515,7 @@ class Deck {
 
   readonly #onPointerUp = (event: PointerEvent): void => {
     const drag = this.#drag;
-    const top = this.#top();
+    const top = this.#topCard();
 
     if (drag?.pointerId !== event.pointerId) {
       return;
@@ -472,6 +559,9 @@ class Deck {
 export interface WhoToFollowCardsOptions {
   enabled: () => boolean;
   signal: AbortSignal;
+  /** How often the cards nudge, and the first time; shorter in tests. */
+  nudgeEvery?: number;
+  firstNudge?: number;
 }
 
 /**
@@ -482,10 +572,18 @@ export class WhoToFollowCards {
   readonly #enabled: () => boolean;
   readonly #decks = new Map<Element, Deck>();
   readonly #observer: MutationObserver;
+  readonly #firstNudge: number;
+  readonly #nudges: number;
   #frame = 0;
 
-  constructor({ enabled, signal }: WhoToFollowCardsOptions) {
+  constructor({ enabled, signal, nudgeEvery = NUDGE_EVERY_MS, firstNudge = FIRST_NUDGE_MS }: WhoToFollowCardsOptions) {
     this.#enabled = enabled;
+    this.#firstNudge = firstNudge;
+    this.#nudges = window.setInterval(() => {
+      for (const deck of this.#decks.values()) {
+        deck.nudge();
+      }
+    }, nudgeEvery);
     // A follow only changes a button's label, which the page-wide watch for added and removed nodes does not see.
     this.#observer = new MutationObserver(this.#schedule);
 
@@ -532,8 +630,13 @@ export class WhoToFollowCards {
       }
 
       if (deck === undefined) {
-        deck = new Deck();
+        const created = new Deck();
+
+        deck = created;
         this.#decks.set(section, deck);
+        window.setTimeout(() => {
+          created.nudge();
+        }, this.#firstNudge);
         this.#observer.observe(section, {
           subtree: true,
           childList: true,
@@ -547,6 +650,7 @@ export class WhoToFollowCards {
       }
 
       deck.update(people);
+      this.#askForMore(section, deck);
     }
 
     if (this.#decks.size > 0 && document.head.querySelector(ownedSelector(STYLE_ROLE)) === null) {
@@ -554,7 +658,23 @@ export class WhoToFollowCards {
     }
   }
 
+  /**
+   * Endless: once swiping has run the stack low, it asks for the next people with the block's own "Suggest other
+   * people", so it is the site's own request, as if the button were pressed.
+   */
+  #askForMore(section: Element, deck: Deck): void {
+    const more = moreSuggestionsButton(section);
+
+    if (more === null || deck.size >= STACK || deck.askedAtSwipe === deck.swipes) {
+      return;
+    }
+
+    deck.askedAtSwipe = deck.swipes;
+    more.click();
+  }
+
   destroy(): void {
+    window.clearInterval(this.#nudges);
     cancelAnimationFrame(this.#frame);
     this.#frame = 0;
     this.#observer.disconnect();
