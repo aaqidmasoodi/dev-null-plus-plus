@@ -11,6 +11,12 @@
 export const WHO_TO_FOLLOW_SECTIONS =
   'section[aria-labelledby="aside-who-to-follow"], section[aria-labelledby="log-who-to-follow"]';
 
+/**
+ * On <html> while the cards are on, from before the page is drawn, so the cards' skeleton replaces the site's from the
+ * first frame (src/entrypoints/who-to-follow-early.content).
+ */
+export const WHO_TO_FOLLOW_CARDS_ATTRIBUTE = 'data-dnpp-who-to-follow';
+
 const FOLLOW_BUTTON = '[data-test="suggested-follow-button"]';
 const MORE_BUTTON = '[data-test="who-to-follow-refresh"]';
 const DISMISS_BUTTON = '[data-test="suggested-dismiss-button"]';
@@ -99,13 +105,6 @@ function readRow(row: HTMLLIElement): Suggestion | null {
     follow,
     dismiss: row.querySelector<HTMLElement>(DISMISS_BUTTON),
   };
-}
-
-/** Whether a block is still loading: its list holds only the site's placeholder rows, hidden from screen readers. */
-export function isLoadingSuggestions(list: HTMLUListElement): boolean {
-  const rows = [...list.children];
-
-  return rows.length > 0 && rows.every((row) => row.hasAttribute('aria-hidden'));
 }
 
 /**

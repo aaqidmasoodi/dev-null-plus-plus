@@ -269,9 +269,12 @@ test('while the people load, a skeleton of the cards, the same size, so nothing 
 
   const section = page.locator('section[aria-labelledby="aside-who-to-follow"]');
 
-  await expect(deck(page).locator('.card.skeleton')).toHaveCount(3);
-  // The site's own placeholder rows are hidden, as its rows are.
-  await expect(section.locator('ul')).toBeHidden();
+  // The site's placeholder rows never show; its list is drawn as a card, with no cards of ours yet.
+  await expect(section.locator('ul > li').first()).toBeHidden();
+  await expect(deck(page)).toHaveCount(0);
+  expect(
+    await section.locator('ul').evaluate((list) => getComputedStyle(list, '::after').getPropertyValue('content')),
+  ).toBe('""');
   await page.screenshot({ path: test.info().outputPath('loading.png') });
 
   const before = await section.boundingBox();
@@ -285,6 +288,7 @@ test('while the people load, a skeleton of the cards, the same size, so nothing 
   }, FIXTURE_PEOPLE.slice(0, 3).map(suggestedRowHtml).join(''));
 
   await expect(top(page)).toHaveAttribute('aria-label', 'Ada Park, @adapark');
-  await expect(deck(page).locator('.card.skeleton')).toHaveCount(0);
+  await page.screenshot({ path: test.info().outputPath('loaded.png') });
+  // The cards take the skeleton's exact place: nothing around them moves.
   expect((await section.boundingBox())?.height).toBe(before?.height);
 });

@@ -2,10 +2,10 @@ import { createSvgIcon, el, markOwned, ownedSelector } from '@/core/dom';
 import { CLOSE_ICON } from '@/core/icons';
 import { largerAvatar } from '@/site/images';
 import {
-  isLoadingSuggestions,
   moreSuggestionsButton,
   readSuggestions,
   suggestionList,
+  WHO_TO_FOLLOW_CARDS_ATTRIBUTE,
   WHO_TO_FOLLOW_SECTIONS,
   type Suggestion,
 } from '@/site/who-to-follow';
@@ -153,39 +153,6 @@ class Deck {
     }
   }
 
-  /**
-   * While the site loads the people, a stack of the same size in the site's skeleton style, so nothing moves when the
-   * people arrive, and nothing shows the rows the cards replace.
-   */
-  showLoading(): void {
-    this.#people = [];
-    this.#order = [];
-
-    if (this.#drawn === 'loading') {
-      return;
-    }
-
-    this.#drawn = 'loading';
-    this.#top = null;
-    this.#stage.setAttribute('aria-busy', 'true');
-    this.#stage.replaceChildren(...[2, 1, 0].map((depth) => this.#skeleton(depth)));
-  }
-
-  #skeleton(depth: number): HTMLElement {
-    const bone = (className: string): HTMLElement => el('span', { className: `bone ${className}` });
-
-    return el('div', { className: 'card skeleton', attrs: { 'data-depth': String(depth), 'aria-hidden': 'true' } }, [
-      el('div', { className: 'picture bone' }),
-      el('div', { className: 'info' }, [
-        el('span', { className: 'name' }, [bone('for-name')]),
-        el('span', { className: 'username' }, [bone('for-username')]),
-        el('span', { className: 'bio' }, [bone('for-bio'), bone('for-bio-end')]),
-        el('span', { className: 'reason' }, [bone('for-reason')]),
-        el('span', { className: 'actions' }, [bone('for-dismiss'), bone('for-follow')]),
-      ]),
-    ]);
-  }
-
   /** Draws the stack, only when something about it changed, so a re-render of the site's rows costs nothing. */
   #draw(): void {
     const shown = this.#people.slice(0, STACK);
@@ -207,7 +174,6 @@ class Deck {
     const previousTop = this.#top;
 
     this.#drawn = drawn;
-    this.#stage.removeAttribute('aria-busy');
     this.#top = shown[0]?.username ?? null;
     this.#stage.replaceChildren(...shown.map((person, depth) => this.#card(person, depth)).reverse());
 
@@ -646,6 +612,9 @@ export class WhoToFollowCards {
       return;
     }
 
+    // Keeps the early skeleton in step with the setting, as it changes.
+    document.documentElement.setAttribute(WHO_TO_FOLLOW_CARDS_ATTRIBUTE, '');
+
     const sections = [...document.querySelectorAll(WHO_TO_FOLLOW_SECTIONS)];
 
     for (const [section, deck] of this.#decks) {
@@ -658,11 +627,11 @@ export class WhoToFollowCards {
     for (const section of sections) {
       const list = suggestionList(section);
       const people = list === null ? [] : readSuggestions(list);
-      const isLoading = list !== null && people.length === 0 && isLoadingSuggestions(list);
       let deck = this.#decks.get(section);
 
-      if (list === null || (people.length === 0 && !isLoading)) {
-        // Emptied, or hidden: the site says so in its own words.
+      if (list === null || people.length === 0) {
+        // Loading, the early style draws the skeleton on the site's list; emptied, or hidden, the site says so in its
+        // own words.
         deck?.host.remove();
 
         continue;
@@ -683,12 +652,6 @@ export class WhoToFollowCards {
 
       if (deck.host.previousElementSibling !== list) {
         list.after(deck.host);
-      }
-
-      if (isLoading) {
-        deck.showLoading();
-
-        continue;
       }
 
       deck.update(people);
@@ -736,6 +699,7 @@ export class WhoToFollowCards {
 
     this.#decks.clear();
     document.head.querySelector(ownedSelector(STYLE_ROLE))?.remove();
+    document.documentElement.removeAttribute(WHO_TO_FOLLOW_CARDS_ATTRIBUTE);
   }
 
   readonly #schedule = (): void => {

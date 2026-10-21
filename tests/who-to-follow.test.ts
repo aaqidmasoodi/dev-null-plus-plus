@@ -276,7 +276,7 @@ describe('while the people load', () => {
     document.body.innerHTML = '';
   });
 
-  it('shows the cards’ own skeleton in place of the site’s rows, then the cards', () => {
+  it('leaves the site’s list to the early skeleton style, marked on <html>, then shows the cards', () => {
     document.body.innerHTML = whoToFollowLoadingHtml();
     controller = new AbortController();
 
@@ -285,16 +285,27 @@ describe('while the people load', () => {
 
     cards.ensure();
 
-    // Right after the site's list, which the style hides, as it does the rows.
-    expect(list().nextElementSibling?.getAttribute('data-dnpp')).toBe('who-to-follow');
-    expect(deck()?.querySelectorAll('.card.skeleton')).toHaveLength(3);
-    expect(deck()?.querySelector('.stage')?.getAttribute('aria-busy')).toBe('true');
+    // Loading: no cards yet, and nothing added to the list, which the early style draws as a card.
+    expect(deck()).toBeUndefined();
+    expect(document.documentElement.hasAttribute('data-dnpp-who-to-follow')).toBe(true);
 
     list().innerHTML = FIXTURE_PEOPLE.slice(0, 3).map(suggestedRowHtml).join('');
     cards.ensure();
 
-    expect(deck()?.querySelectorAll('.card.skeleton')).toHaveLength(0);
     expect(deck()?.querySelector('.card[data-depth="0"]')?.getAttribute('aria-label')).toBe('Ada Park, @adapark');
-    expect(deck()?.querySelector('.stage')?.hasAttribute('aria-busy')).toBe(false);
+  });
+
+  it('takes the mark off when switched off, so the site’s own skeleton shows again', () => {
+    document.body.innerHTML = whoToFollowLoadingHtml();
+    controller = new AbortController();
+
+    let enabled = true;
+    const cards = new WhoToFollowCards({ enabled: () => enabled, signal: controller.signal });
+
+    cards.ensure();
+    enabled = false;
+    cards.ensure();
+
+    expect(document.documentElement.hasAttribute('data-dnpp-who-to-follow')).toBe(false);
   });
 });
