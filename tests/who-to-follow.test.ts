@@ -5,7 +5,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { WhoToFollowCards } from '@/features/who-to-follow/cards';
 import { readSuggestions, suggestionList } from '@/site/who-to-follow';
 
-import { actLikeTheSite, FIXTURE_PEOPLE, suggestedRowHtml, whoToFollowHtml } from './fixtures/site';
+import {
+  actLikeTheSite,
+  FIXTURE_PEOPLE,
+  suggestedRowHtml,
+  whoToFollowHtml,
+  whoToFollowLoadingHtml,
+} from './fixtures/site';
 
 const section = (): HTMLElement => {
   const found = document.querySelector<HTMLElement>('section[aria-labelledby="aside-who-to-follow"]');
@@ -259,5 +265,47 @@ describe('an endless stack', () => {
 
     swipe();
     expect(site.refreshes).toBe(2);
+  });
+});
+
+describe('while the people load', () => {
+  let controller: AbortController;
+
+  afterEach(() => {
+    controller.abort();
+    document.body.innerHTML = '';
+  });
+
+  it('leaves the site’s list to the early skeleton style, marked on <html>, then shows the cards', () => {
+    document.body.innerHTML = whoToFollowLoadingHtml();
+    controller = new AbortController();
+
+    const cards = new WhoToFollowCards({ enabled: () => true, signal: controller.signal });
+    const deck = (): ShadowRoot | null | undefined => document.querySelector('[data-dnpp="who-to-follow"]')?.shadowRoot;
+
+    cards.ensure();
+
+    // Loading: no cards yet, and nothing added to the list, which the early style draws as a card.
+    expect(deck()).toBeUndefined();
+    expect(document.documentElement.hasAttribute('data-dnpp-who-to-follow')).toBe(true);
+
+    list().innerHTML = FIXTURE_PEOPLE.slice(0, 3).map(suggestedRowHtml).join('');
+    cards.ensure();
+
+    expect(deck()?.querySelector('.card[data-depth="0"]')?.getAttribute('aria-label')).toBe('Ada Park, @adapark');
+  });
+
+  it('takes the mark off when switched off, so the site’s own skeleton shows again', () => {
+    document.body.innerHTML = whoToFollowLoadingHtml();
+    controller = new AbortController();
+
+    let enabled = true;
+    const cards = new WhoToFollowCards({ enabled: () => enabled, signal: controller.signal });
+
+    cards.ensure();
+    enabled = false;
+    cards.ensure();
+
+    expect(document.documentElement.hasAttribute('data-dnpp-who-to-follow')).toBe(false);
   });
 });

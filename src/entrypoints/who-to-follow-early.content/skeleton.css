@@ -1,0 +1,88 @@
+/*
+ * "Who to follow" while its people load, as a card. The browser applies this before it draws the page, so the site's
+ * row placeholders never show, even for a moment, and there is one skeleton, not the site's and then ours. Only while
+ * the cards are switched on (the attribute on <html>), and only while the list holds nothing but the site's
+ * placeholders: once the people come, the cards take this exact space.
+ *
+ * Everything is drawn on the site's list itself with pseudo-elements, so nothing is added to the page that React
+ * renders. The sizes are the card's own (src/features/who-to-follow/cards.css): at most 22rem across, a square picture,
+ * 177px of details under it, and 16px below for the cards peeking out behind. Colours are the site's skeleton
+ * (components/ui/skeleton.tsx).
+ */
+
+:root[data-dnpp-who-to-follow]
+  :is(section[aria-labelledby='aside-who-to-follow'], section[aria-labelledby='log-who-to-follow'])
+  ul:has(> li[aria-hidden]):not(:has(> li:not([aria-hidden]))) {
+  --dnpp-bone: color-mix(in srgb, var(--primary, GrayText) 10%, transparent);
+
+  position: relative;
+  max-width: 22rem;
+  height: 0;
+  /* The card is as tall as it is wide, plus its details and the room below. */
+  padding: 0 0 calc(min(100%, 22rem) + 193px) !important;
+  margin: 0 !important;
+  border: 0 !important;
+  list-style: none;
+}
+
+:root[data-dnpp-who-to-follow]
+  :is(section[aria-labelledby='aside-who-to-follow'], section[aria-labelledby='log-who-to-follow'])
+  ul:has(> li[aria-hidden]):not(:has(> li:not([aria-hidden])))
+  > li {
+  display: none !important;
+}
+
+/* The card: its border, background and the line between the picture and the details. */
+:root[data-dnpp-who-to-follow]
+  :is(section[aria-labelledby='aside-who-to-follow'], section[aria-labelledby='log-who-to-follow'])
+  ul:has(> li[aria-hidden]):not(:has(> li:not([aria-hidden])))::after {
+  position: absolute;
+  inset: 0 0 16px;
+  box-sizing: border-box;
+  border: 1px solid var(--border, GrayText);
+  border-radius: calc(var(--radius, 0.5rem) * 1.5);
+  background:
+    linear-gradient(var(--border, GrayText), var(--border, GrayText)) left 0 bottom 176px / 100% 1px no-repeat,
+    var(--card, Canvas);
+  box-shadow: 0 8px 24px -12px rgb(0 0 0 / 0.35);
+  content: '';
+}
+
+/* What will be there, pulsing: the picture, then name, username, two lines of bio, a reason, and the two buttons. */
+:root[data-dnpp-who-to-follow]
+  :is(section[aria-labelledby='aside-who-to-follow'], section[aria-labelledby='log-who-to-follow'])
+  ul:has(> li[aria-hidden]):not(:has(> li:not([aria-hidden])))::before {
+  position: absolute;
+  z-index: 1;
+  inset: 1px 1px 17px;
+  border-radius: calc(var(--radius, 0.5rem) * 1.5 - 1px) calc(var(--radius, 0.5rem) * 1.5 - 1px) 0 0;
+  animation: dnpp-who-to-follow-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  background:
+    linear-gradient(var(--dnpp-bone), var(--dnpp-bone)) left 0 top 0 / 100% calc(100% - 177px) no-repeat,
+    linear-gradient(var(--dnpp-bone), var(--dnpp-bone)) left 14px bottom 144px / calc((100% - 28px) * 0.55) 16px
+      no-repeat,
+    linear-gradient(var(--dnpp-bone), var(--dnpp-bone)) left 14px bottom 124px / calc((100% - 28px) * 0.35) 12px
+      no-repeat,
+    linear-gradient(var(--dnpp-bone), var(--dnpp-bone)) left 14px bottom 100px / calc((100% - 28px) * 0.9) 12px
+      no-repeat,
+    linear-gradient(var(--dnpp-bone), var(--dnpp-bone)) left 14px bottom 84px / calc((100% - 28px) * 0.6) 12px no-repeat,
+    linear-gradient(var(--dnpp-bone), var(--dnpp-bone)) left 14px bottom 68px / calc((100% - 28px) * 0.45) 12px
+      no-repeat,
+    linear-gradient(var(--dnpp-bone), var(--dnpp-bone)) left 14px bottom 14px / 36px 36px no-repeat,
+    linear-gradient(var(--dnpp-bone), var(--dnpp-bone)) left 58px bottom 14px / calc(100% - 72px) 36px no-repeat;
+  content: '';
+}
+
+@keyframes dnpp-who-to-follow-pulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-dnpp-who-to-follow]
+    :is(section[aria-labelledby='aside-who-to-follow'], section[aria-labelledby='log-who-to-follow'])
+    ul:has(> li[aria-hidden]):not(:has(> li:not([aria-hidden])))::before {
+    animation: none;
+  }
+}

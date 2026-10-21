@@ -5,6 +5,7 @@ import {
   moreSuggestionsButton,
   readSuggestions,
   suggestionList,
+  WHO_TO_FOLLOW_CARDS_ATTRIBUTE,
   WHO_TO_FOLLOW_SECTIONS,
   type Suggestion,
 } from '@/site/who-to-follow';
@@ -92,6 +93,8 @@ class Deck {
   #drawn = '';
   #drag: Drag | null = null;
   #isMoving = false;
+  /** The nudge playing, if one is: a press stops it, so it never fights a drag. */
+  #nudging: Animation[] = [];
   /** How many people have been swiped away here. */
   #swipes = 0;
   #top: string | null = null;
@@ -100,6 +103,8 @@ class Deck {
    * suggest is not asked over and over, only each time someone is swiped away.
    */
   askedAtSwipe = 0;
+  /** Whether the first nudge is on its way. Set once people first show, not while the stack is still loading. */
+  isNudgeScheduled = false;
 
   constructor() {
     this.host = el('div');
@@ -416,7 +421,7 @@ class Deck {
    * show, nobody is touching them, and nobody has swiped yet.
    */
   nudge(): void {
-    const top = this.#topCard();
+    const top = this.#people.length === 0 ? null : this.#topCard();
     const next = this.#stage.querySelector<HTMLElement>('.card[data-depth="1"]');
     const shown = this.host.getBoundingClientRect();
 
@@ -435,25 +440,32 @@ class Deck {
 
     const timing = { duration: 900, easing: 'ease-in-out' };
 
-    top.animate(
-      [
-        { transform: 'none' },
-        { transform: 'translateX(-28px) rotate(-1.4deg)', offset: 0.35 },
-        { transform: 'translateX(8px) rotate(0.4deg)', offset: 0.7 },
-        { transform: 'none' },
-      ],
-      timing,
-    );
-    next?.animate(
-      [{ transform: risen(1, 0) }, { transform: risen(1, 0.35), offset: 0.35 }, { transform: risen(1, 0) }],
-      timing,
-    );
+    this.#nudging = [
+      top.animate(
+        [
+          { transform: 'none' },
+          { transform: 'translateX(-28px) rotate(-1.4deg)', offset: 0.35 },
+          { transform: 'translateX(8px) rotate(0.4deg)', offset: 0.7 },
+          { transform: 'none' },
+        ],
+        timing,
+      ),
+      ...(next === null
+        ? []
+        : [
+            next.animate(
+              [{ transform: risen(1, 0) }, { transform: risen(1, 0.35), offset: 0.35 }, { transform: risen(1, 0) }],
+              timing,
+            ),
+          ]),
+    ];
   }
 
   readonly #onPointerDown = (event: PointerEvent): void => {
     const top = this.#topCard();
 
     if (
+      this.#people.length === 0 ||
       event.button !== 0 ||
       !event.isPrimary ||
       this.#isMoving ||
@@ -465,6 +477,11 @@ class Deck {
       return;
     }
 
+    for (const animation of this.#nudging) {
+      animation.cancel();
+    }
+
+    this.#nudging = [];
     this.#drag = {
       pointerId: event.pointerId,
       startX: event.clientX,
@@ -536,7 +553,11 @@ class Deck {
 
     const [first = { x: event.clientX, time: event.timeStamp }] = drag.samples;
     const speed = (event.clientX - first.x) / Math.max(event.timeStamp - first.time, 1);
-    const isGoing = Math.abs(drag.x) > top.offsetWidth * SWIPE_SHARE || Math.abs(speed) > FLICK_SPEED;
+    // Far enough, or flicked: but a flick only counts the way the card is out, so bringing it back quickly to let go
+    // in the middle never sends it the other way.
+    const isFlicked =
+      Math.abs(speed) > FLICK_SPEED && Math.sign(speed) === Math.sign(drag.x) && Math.abs(drag.x) > SLOP_PX * 2;
+    const isGoing = Math.abs(drag.x) > top.offsetWidth * SWIPE_SHARE || isFlicked;
 
     top.style.transform = '';
     this.#raise(0, false);
@@ -608,6 +629,9 @@ export class WhoToFollowCards {
       return;
     }
 
+    // Keeps the early skeleton in step with the setting, as it changes.
+    document.documentElement.setAttribute(WHO_TO_FOLLOW_CARDS_ATTRIBUTE, '');
+
     const sections = [...document.querySelectorAll(WHO_TO_FOLLOW_SECTIONS)];
 
     for (const [section, deck] of this.#decks) {
@@ -623,7 +647,8 @@ export class WhoToFollowCards {
       let deck = this.#decks.get(section);
 
       if (list === null || people.length === 0) {
-        // Still loading, emptied, or hidden: the site says so in its own words.
+        // Loading, the early style draws the skeleton on the site's list; emptied, or hidden, the site says so in its
+        // own words.
         deck?.host.remove();
 
         continue;
@@ -634,9 +659,6 @@ export class WhoToFollowCards {
 
         deck = created;
         this.#decks.set(section, deck);
-        window.setTimeout(() => {
-          created.nudge();
-        }, this.#firstNudge);
         this.#observer.observe(section, {
           subtree: true,
           childList: true,
@@ -651,6 +673,15 @@ export class WhoToFollowCards {
 
       deck.update(people);
       this.#askForMore(section, deck);
+
+      if (!deck.isNudgeScheduled) {
+        const shown = deck;
+
+        shown.isNudgeScheduled = true;
+        window.setTimeout(() => {
+          shown.nudge();
+        }, this.#firstNudge);
+      }
     }
 
     if (this.#decks.size > 0 && document.head.querySelector(ownedSelector(STYLE_ROLE)) === null) {
@@ -685,6 +716,7 @@ export class WhoToFollowCards {
 
     this.#decks.clear();
     document.head.querySelector(ownedSelector(STYLE_ROLE))?.remove();
+    document.documentElement.removeAttribute(WHO_TO_FOLLOW_CARDS_ATTRIBUTE);
   }
 
   readonly #schedule = (): void => {

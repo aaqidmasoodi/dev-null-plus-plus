@@ -1,6 +1,12 @@
 import type { Page } from '@playwright/test';
 
-import { FIXTURE_PEOPLE, suggestedRowHtml, whoToFollowHtml, type FixturePerson } from '../tests/fixtures/site';
+import {
+  FIXTURE_PEOPLE,
+  suggestedRowHtml,
+  whoToFollowHtml,
+  whoToFollowLoadingHtml,
+  type FixturePerson,
+} from '../tests/fixtures/site';
 
 import { expect, SITE, test } from './fixtures';
 
@@ -247,4 +253,42 @@ test('nudges a moment after it shows, so it is plain the cards can be swiped', a
     .poll(() => top(page).evaluate((card) => card.getAnimations().length), { timeout: 8_000 })
     .toBeGreaterThan(0);
   expect(await seen(page)).toEqual({ follows: [], dismissals: [] });
+});
+
+test('while the people load, a skeleton of the cards, the same size, so nothing moves when they come', async ({
+  page,
+}) => {
+  await addWhoToFollow(page);
+  // Start over in the loading state the site shows on a fresh page.
+  await page.evaluate((loading) => {
+    document.querySelector('section[aria-labelledby="aside-who-to-follow"]')?.remove();
+    [...document.querySelectorAll('aside > section')]
+      .find((element) => element.clientWidth > 0)
+      ?.insertAdjacentHTML('afterend', loading);
+  }, whoToFollowLoadingHtml());
+
+  const section = page.locator('section[aria-labelledby="aside-who-to-follow"]');
+
+  // The site's placeholder rows never show; its list is drawn as a card, with no cards of ours yet.
+  await expect(section.locator('ul > li').first()).toBeHidden();
+  await expect(deck(page)).toHaveCount(0);
+  expect(
+    await section.locator('ul').evaluate((list) => getComputedStyle(list, '::after').getPropertyValue('content')),
+  ).toBe('""');
+  await page.screenshot({ path: test.info().outputPath('loading.png') });
+
+  const before = await section.boundingBox();
+
+  await page.evaluate((rows) => {
+    const list = document.querySelector('section[aria-labelledby="aside-who-to-follow"] ul');
+
+    if (list !== null) {
+      list.innerHTML = rows;
+    }
+  }, FIXTURE_PEOPLE.slice(0, 3).map(suggestedRowHtml).join(''));
+
+  await expect(top(page)).toHaveAttribute('aria-label', 'Ada Park, @adapark');
+  await page.screenshot({ path: test.info().outputPath('loaded.png') });
+  // The cards take the skeleton's exact place: nothing around them moves.
+  expect((await section.boundingBox())?.height).toBe(before?.height);
 });
