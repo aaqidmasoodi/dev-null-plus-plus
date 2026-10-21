@@ -184,8 +184,9 @@ class Deck {
         el('div', { className: 'info' }, [
           name,
           username,
-          person.bio !== null && el('p', { className: 'bio', attrs: { title: person.bio } }, [`# ${person.bio}`]),
-          person.reason !== null && el('p', { className: 'reason' }, [person.reason]),
+          // Always there, empty or not, so every card is the same height and nothing moves as they change.
+          this.#line('bio', person.bio === null ? null : `# ${person.bio}`, person.bio),
+          this.#line('reason', person.reason, person.reason),
           isTop && this.#actions(person),
         ]),
       ],
@@ -210,6 +211,18 @@ class Deck {
     }
 
     return card;
+  }
+
+  #line(className: string, text: string | null, title: string | null): HTMLElement {
+    const line = el('p', { className }, [text ?? '']);
+
+    if (title === null) {
+      line.setAttribute('aria-hidden', 'true');
+    } else {
+      line.title = title;
+    }
+
+    return line;
   }
 
   #actions(person: Suggestion): HTMLElement {

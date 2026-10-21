@@ -129,3 +129,33 @@ test('following goes through the site’s own button, and someone followed is ne
 
   expect(await seen(page)).toEqual({ follows: ['adapark'], dismissals: [] });
 });
+
+test('swiping never moves anything around the cards', async ({ page }) => {
+  await addWhoToFollow(page);
+  await expect.poll(() => stack(page)).toEqual(['Ada Park', 'Tomás Reyes', 'Minji Kim']);
+
+  // Every frame, where the block ends: whatever sits under it would move if it changed.
+  await page.evaluate(() => {
+    const section = document.querySelector('section[aria-labelledby="aside-who-to-follow"]');
+    const ends: number[] = [];
+    const watch = (): void => {
+      ends.push(Math.round(section?.getBoundingClientRect().bottom ?? 0));
+      requestAnimationFrame(watch);
+    };
+
+    (window as unknown as { ends: number[] }).ends = ends;
+    watch();
+  });
+
+  // From someone with a bio, through someone with only a reason, and a newcomer at the back.
+  await swipe(page, -200);
+  await expect.poll(() => stack(page)).toEqual(['Tomás Reyes', 'Minji Kim', 'Olu Adeyemi']);
+  await swipe(page, 200);
+  await expect(top(page)).toHaveAttribute('aria-label', 'Minji Kim, @minjikim');
+  await swipe(page, 30);
+  await page.waitForTimeout(400);
+
+  const ends = await page.evaluate(() => (window as unknown as { ends: number[] }).ends);
+
+  expect(new Set(ends).size).toBe(1);
+});
