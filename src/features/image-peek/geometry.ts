@@ -112,8 +112,13 @@ const px = (value: number): string => `${String(Math.round(value * 100) / 100)}p
  * The frame that makes the peek, laid out at `peek`, look exactly like the picture as drawn on the page: moved and
  * scaled onto `drawn`, and clipped to the part of it that `visible` shows, with the page's rounded corners. The clip
  * is in the peek's own, unscaled, coordinates.
+ *
+ * A radius past half the picture draws the same circle as half does, so it is cut to half. Otherwise a fully rounded
+ * avatar (the site's `rounded-full` is millions of pixels) would stay a circle through nearly the whole grow and snap
+ * to the peek's corners at the very end, instead of opening smoothly into them.
  */
 export function frameAt(peek: Rect, drawn: Rect, visible: Rect, radius: number): PeekFrame {
+  const corner = Math.min(radius, visible.width / 2, visible.height / 2);
   const scale = drawn.width / peek.width;
   const scaleY = drawn.height / peek.height;
   const top = (visible.top - drawn.top) / scaleY;
@@ -124,7 +129,7 @@ export function frameAt(peek: Rect, drawn: Rect, visible: Rect, radius: number):
   return {
     // Scaling happens around the top-left corner, so the peek lands exactly on the drawn picture.
     transform: `translate(${px(drawn.left - peek.left)}, ${px(drawn.top - peek.top)}) scale(${String(scale)}, ${String(scaleY)})`,
-    clipPath: `inset(${px(top)} ${px(right)} ${px(bottom)} ${px(left)} round ${px(radius / scale)})`,
+    clipPath: `inset(${px(top)} ${px(right)} ${px(bottom)} ${px(left)} round ${px(corner / scale)})`,
   };
 }
 
