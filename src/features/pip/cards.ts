@@ -2,6 +2,7 @@ import { createSvgIcon, el, markOwned } from '@/core/dom';
 import { SiteTooltip } from '@/features/ai-rewrite/tooltip';
 
 import styles from './cards.css?inline';
+import { PLAYER_ROLE } from './player';
 
 export const CARDS_ROLE = 'pip-cards';
 
@@ -104,8 +105,10 @@ export class Cards {
       return;
     }
 
+    // Before the player, on the same layer, so the player flying home into its embed passes over the poster there,
+    // not under it.
     if (!this.#host.isConnected) {
-      document.documentElement.append(this.#host);
+      document.documentElement.insertBefore(this.#host, document.querySelector(`[data-dnpp="${PLAYER_ROLE}"]`));
     }
 
     const wanted = new Map(cards.map((card) => [card.slot, card]));

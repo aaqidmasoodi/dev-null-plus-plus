@@ -114,6 +114,14 @@ test('scrolled past, it floats; scrolled back, it comes home, still the same vid
   await page.mouse.wheel(0, 1500);
   await expect.poll(() => isFloating(page)).toBe(true);
   await expect.poll(() => cardKinds(page)).toEqual(['elsewhere-pip']);
+  // Flying home, it passes over the poster in its embed, not under it.
+  expect(
+    await page.evaluate(() => {
+      const layers = [...document.documentElement.children].map((child) => (child as HTMLElement).dataset.dnpp);
+
+      return layers.indexOf('pip-cards') < layers.indexOf('pip-player');
+    }),
+  ).toBe(true);
 
   await page.locator('#dnpp-test-video').scrollIntoViewIfNeeded();
   await page.evaluate(() => {
