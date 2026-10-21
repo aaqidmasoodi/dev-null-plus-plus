@@ -7,6 +7,7 @@ import {
   CEILING_GAP,
   CORNERS,
   DOCK_MARGIN,
+  LAST_SLIVER,
   POP_OUT_BELOW,
   RESTING_VELOCITY,
   RETURN_ABOVE,
@@ -136,6 +137,10 @@ export class Player {
   #hiddenSince: number | null = null;
   #playback: Playback = 'unknown';
   #isFloating = false;
+  /** Leaving its embed, it stays under the site's headers and bars until it has slid clear of them. */
+  #isEmerging = false;
+  /** Whether its embed has shown well enough to watch since it last arrived there, so a quarter leaving counts. */
+  #wasInView = false;
   #measured: Measured | null = null;
   #controlsTimer = 0;
   #isEnded = false;
@@ -506,7 +511,7 @@ export class Player {
   }
 
   #setFloating(isFloating: boolean): void {
-    this.#host.style.zIndex = isFloating ? FLOATING_LAYER : INLINE_LAYER;
+    this.#host.style.zIndex = isFloating && !this.#isEmerging ? FLOATING_LAYER : INLINE_LAYER;
     // Its own layer in page transitions, so it isn't faded out and back in with the page.
     this.#host.style.setProperty('view-transition-name', isFloating ? 'dnpp-pip' : 'none');
     this.#host.toggleAttribute('data-floating', isFloating);
@@ -572,6 +577,8 @@ export class Player {
 
   #flyInto(slot: HTMLElement): void {
     this.#lift();
+    this.#isEmerging = false;
+    this.#wasInView = false;
     this.#stage = 'to-slot';
     this.#lastTarget = null;
     this.#slot = slot;
@@ -593,6 +600,8 @@ export class Player {
         departureBox(this.#lastSlotRect, this.#measure().viewport, this.#ceilingAbove(this.#lastSlotRect)),
       );
       this.#velocity = RESTING_VELOCITY;
+      // What has already scrolled under a header must not flash over it as it lifts off.
+      this.#isEmerging = true;
     }
 
     this.#stage = 'to-corner';
@@ -621,10 +630,21 @@ export class Player {
     return hasArrived;
   }
 
-  /** A playing video leaves its embed once the embed has all but scrolled away, and stayed away a moment. */
+  /**
+   * A playing video leaves its embed once a quarter of it has scrolled away after it showed well, or all but a sliver
+   * has otherwise, and it has stayed away a moment. Played while half off the screen, it doesn't fly off at once.
+   */
   #hasScrolledPast(rect: DOMRect, now: number): boolean {
+    const fraction = this.#shownFraction(rect);
+
+    if (fraction >= POP_OUT_BELOW) {
+      this.#wasInView = true;
+    }
+
     const isAway =
-      this.#options.isAutomatic() && this.#playback !== 'paused' && this.#shownFraction(rect) < POP_OUT_BELOW;
+      this.#options.isAutomatic() &&
+      this.#playback !== 'paused' &&
+      (fraction < LAST_SLIVER || (this.#wasInView && fraction < POP_OUT_BELOW));
 
     if (!isAway) {
       this.#hiddenSince = null;
@@ -802,11 +822,23 @@ export class Player {
       return this.#candidate !== null;
     }
 
-    if (this.#chase(this.#cornerTarget(), seconds)) {
+    const hasArrived = this.#chase(this.#cornerTarget(), seconds);
+
+    if (this.#isEmerging && (hasArrived || this.#isClear(this.#box))) {
+      this.#isEmerging = false;
+      this.#setFloating(true);
+    }
+
+    if (hasArrived) {
       this.#stage = 'floating';
     }
 
     return true;
+  }
+
+  /** Out from under every header above it and bar below it. */
+  #isClear(box: Box): boolean {
+    return box.y >= this.#ceilingAbove(box) - 0.5 && box.y + box.height <= this.#floorBelow(box) + 0.5;
   }
 
   // Dragging and resizing, by the grabber and the corner handles.
@@ -821,6 +853,8 @@ export class Player {
     (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
     this.#interaction = interaction;
     this.#velocity = RESTING_VELOCITY;
+    this.#isEmerging = false;
+    this.#setFloating(true);
     this.#host.setAttribute('data-interacting', '');
   }
 

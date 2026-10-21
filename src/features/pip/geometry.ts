@@ -53,9 +53,15 @@ export const MAX_LENGTH = 720;
 /** Below the site's `md` breakpoint it is laid out for a phone: nav along the bottom, a thumb doing the scrolling. */
 export const COMPACT_BELOW = 768;
 
-/** A playing video floats once all but a sliver has scrolled away, and comes back once most of it shows again. */
-export const POP_OUT_BELOW = 0.25;
-export const RETURN_ABOVE = 0.6;
+/**
+ * A playing video that has been in full view floats as soon as a quarter of it scrolls away, so it peels off its post
+ * while most of it still shows, and comes back once nearly all of it shows again. The gap between the two keeps it
+ * from flickering in and out around one line.
+ */
+export const POP_OUT_BELOW = 0.75;
+export const RETURN_ABOVE = 0.9;
+/** Under this, in full view before or not, a playing video floats, and closing it doesn't hand it back. */
+export const LAST_SLIVER = 0.25;
 
 export const RESTING_VELOCITY: Box = { x: 0, y: 0, width: 0, height: 0 };
 
@@ -154,7 +160,7 @@ export function oppositeCorner(corner: Corner): Corner {
 
 /** Closing hands the video back to its embed when enough of it shows to watch there, and stops it otherwise. */
 export function closeAction(embedFraction: number | null): 'return' | 'stop' {
-  return embedFraction !== null && embedFraction >= POP_OUT_BELOW ? 'return' : 'stop';
+  return embedFraction !== null && embedFraction >= LAST_SLIVER ? 'return' : 'stop';
 }
 
 /** Only a video that floated by itself goes back by itself; one pinned by hand stays out until asked back. */
@@ -183,12 +189,15 @@ export function afterEmbedLeft(
  * slides back in from that edge. Under a header, that edge is the header's bottom.
  */
 export function departureBox(rect: Box, viewport: Size, top = 0): Box {
-  const sliver = rect.height * POP_OUT_BELOW;
+  const sliver = rect.height * LAST_SLIVER;
 
   return { ...rect, y: Math.min(Math.max(rect.y, top + sliver - rect.height), viewport.height - sliver) };
 }
 
-/** How much of an embed shows, counting what is under a header above it, or behind a bar below it, as hidden. */
+/**
+ * How much of an embed shows, counting what is under a header above it, or behind a bar below it, as hidden. An embed
+ * taller than the room between them counts as all showing once it fills that room.
+ */
 export function visibleFraction(
   rect: { top: number; height: number },
   viewport: Size,
@@ -201,7 +210,7 @@ export function visibleFraction(
 
   const visible = Math.min(rect.top + rect.height, bottom) - Math.max(rect.top, top);
 
-  return Math.max(0, visible) / rect.height;
+  return Math.min(1, Math.max(0, visible) / Math.min(rect.height, Math.max(1, bottom - top)));
 }
 
 /**

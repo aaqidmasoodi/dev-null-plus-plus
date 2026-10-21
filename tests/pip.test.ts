@@ -3,6 +3,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
+  LAST_SLIVER,
   POP_OUT_BELOW,
   RESTING_VELOCITY,
   RETURN_ABOVE,
@@ -24,13 +25,16 @@ import { canFloat, readVideoEmbed } from '@/site/embeds';
 const wide = { width: 1280, height: 800 };
 
 describe('the floating player’s geometry', () => {
-  it('floats once under a quarter shows, and comes back once 60% does', () => {
-    expect(POP_OUT_BELOW).toBe(0.25);
-    expect(RETURN_ABOVE).toBe(0.6);
+  it('floats once a quarter has scrolled away, and comes back once 90% shows', () => {
+    expect(POP_OUT_BELOW).toBe(0.75);
+    expect(RETURN_ABOVE).toBe(0.9);
+    expect(LAST_SLIVER).toBe(0.25);
     expect(visibleFraction({ top: -150, height: 200 }, wide)).toBe(0.25);
     // What is under a sticky header counts as hidden.
     expect(visibleFraction({ top: 0, height: 200 }, wide, 100)).toBe(0.5);
     expect(visibleFraction({ top: 700, height: 200 }, wide, 0, 750)).toBe(0.25);
+    // A video taller than the room between header and bar shows in full once it fills that room.
+    expect(visibleFraction({ top: 0, height: 900 }, wide, 60, 740)).toBe(1);
   });
 
   it('keeps the video’s shape, between its smallest and what fits', () => {
