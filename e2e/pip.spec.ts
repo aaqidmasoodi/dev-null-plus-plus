@@ -166,10 +166,16 @@ test('it keeps playing on other pages, and closing it there stops it', async ({ 
 
 test('can be switched off on the settings page', async ({ page }) => {
   await page.goto(`${SITE}#dev-null-plus-plus`);
+
+  const automatic = page.getByRole('radiogroup', { name: 'Automatic picture-in-picture' });
+
+  await expect(automatic).toBeVisible();
   await page
     .getByRole('radiogroup', { name: 'Picture-in-picture', exact: true })
     .getByRole('radio', { name: 'Off' })
     .click();
+  // Automatic is a choice within picture-in-picture, so it goes with it.
+  await expect(automatic).toBeHidden();
   await addVideo(page);
   await page.locator('#dnpp-test-video [data-test="link-embed-play"]').click();
 

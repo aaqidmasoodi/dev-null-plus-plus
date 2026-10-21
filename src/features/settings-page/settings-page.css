@@ -165,6 +165,46 @@ dd {
   gap: 1rem;
 }
 
+/* A choice within a feature: its own title and what it does, with its switch beside them. */
+.option {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border, GrayText);
+  border-radius: var(--radius, 0.5rem);
+}
+
+/* Its words take the room; on a phone the switch goes under them. */
+.option > div {
+  flex: 1 1 16rem;
+}
+
+.option[hidden] {
+  display: none;
+}
+
+.option h3 {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.25rem;
+}
+
+.option p {
+  margin: 0.125rem 0 0;
+  color: var(--muted-foreground, GrayText);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  text-wrap: pretty;
+}
+
+.option .segmented {
+  flex: none;
+}
+
 .frame {
   display: block;
   width: 100%;
