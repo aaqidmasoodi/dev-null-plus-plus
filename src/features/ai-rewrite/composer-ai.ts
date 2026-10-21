@@ -42,7 +42,14 @@ const EXPANDED_CLASSES =
   'aria-expanded:bg-primary-soft aria-expanded:text-primary aria-expanded:hover:bg-primary-soft aria-expanded:hover:text-primary';
 
 /** Errors the user fixes on the settings page, so the message links there. */
-const SETTINGS_ERRORS: readonly RewriteErrorCode[] = ['disabled', 'not-configured', 'auth', 'model', 'quota'];
+const SETTINGS_ERRORS: readonly RewriteErrorCode[] = [
+  'disabled',
+  'not-configured',
+  'no-consent',
+  'auth',
+  'model',
+  'quota',
+];
 
 /** The composer button's name, in its tooltip and for screen readers. The panel itself is titled just "Rewrite". */
 const BUTTON_LABEL = 'Rewrite with AI';

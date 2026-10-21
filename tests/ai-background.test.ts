@@ -230,6 +230,7 @@ describe('rewrite', () => {
     readCredential: () => Promise.resolve({ provider: 'openai', apiKey: KEY, model: 'gpt-5-mini' }),
     complete: () => json({ status: 'rewritten', text: 'Rewritten.' }),
     limiter: new RateLimiter(100, 60_000),
+    hasConsent: () => Promise.resolve(true),
     ...overrides,
   });
   const request = { text: 'shipd the thing', mode: 'improve' as const, instruction: '', maxLength: 4000 };
@@ -314,6 +315,10 @@ describe('rewrite', () => {
       ok: false,
       error: 'not-configured',
     });
+    // In Firefox, a draft never leaves the browser once you have taken back leave to send it.
+    await expect(
+      rewrite(request, dependencies({ complete, hasConsent: () => Promise.resolve(false) })),
+    ).resolves.toEqual({ ok: false, error: 'no-consent' });
     expect(complete).not.toHaveBeenCalled();
   });
 

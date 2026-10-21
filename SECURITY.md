@@ -86,6 +86,22 @@ The extension has three parts, trusted in this order:
   anywhere. The tab is told only the failed page's address and why, and only shows a notice if that is the page its
   preview is showing.
 
+**Firefox**
+
+- The same code and the same rules. Firefox builds use Manifest V3 too, checked by Mozilla's own linter in CI and
+  started in a real Firefox there.
+- Firefox asks before an add-on sends data anywhere. dev/null++ declares that it sends nothing, and asks for "website
+  content" only when you connect an AI provider, since a draft goes to it when you ask for a rewrite. Taken back in
+  Firefox's settings, no draft is sent again, and the composer says why (`src/core/consent.ts`).
+- Firefox lets you take back the extension's access to dev-null.sh at any time. Then nothing runs there; the toolbar
+  icon shows a badge, and clicking it asks for access again.
+- Firefox has no `credentialless` frames. A link preview there relies on Total Cookie Protection, on in every Firefox
+  since 103: the previewed site gets its own cookie jar, kept apart from your logins on it, but kept between previews
+  rather than thrown away.
+- The key-entry page's address is unique to each installation in Firefox, so sites cannot probe for it there either.
+- `web-ext`, which lints and signs the Firefox build, is not a dependency: it brings in Android tooling with a known
+  advisory. CI and the release workflow run a pinned version of it, and it is never shipped.
+
 **Picture-in-picture**
 
 - Our player plays exactly the frame the site would have: the same address and the same `allow`, `sandbox` and

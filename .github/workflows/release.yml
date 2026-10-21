@@ -1,0 +1,61 @@
+name: Release
+
+# Publishing a GitHub release attaches the builds to it: the Chrome zip, and the Firefox build signed by Mozilla, which
+# installs in any Firefox by opening it or dragging it into a window. Bump `version` in package.json before releasing;
+# Mozilla signs each version once.
+#
+# Signing needs an addons.mozilla.org API key (Tools > Manage API Keys) in the repository secrets AMO_JWT_ISSUER and
+# AMO_JWT_SECRET. Without them, the unsigned Firefox zip is attached instead, for about:debugging.
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Build, sign and attach
+    runs-on: ubuntu-latest
+    permissions:
+      # Only to attach the builds to the release.
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: package.json
+          cache: npm
+      - run: npm ci
+      - run: npm audit --audit-level=moderate
+      - run: npm run check
+      - run: npm run zip && npm run zip:firefox
+      - run: npx --yes web-ext@10.8.0 lint --source-dir .output/firefox-mv3 --warnings-as-errors
+      # Unlisted: signed for installing from this release, not listed on addons.mozilla.org. web-ext is pinned and run
+      # here only, never a dependency.
+      - name: Sign the Firefox build with Mozilla
+        env:
+          AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+          AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        if: env.AMO_JWT_ISSUER != '' && env.AMO_JWT_SECRET != ''
+        run: >-
+          npx --yes web-ext@10.8.0 sign --channel=unlisted --source-dir .output/firefox-mv3
+          --artifacts-dir .output/signed --upload-source-code .output/dev-null-plus-plus-*-sources.zip
+          --api-key "$AMO_JWT_ISSUER" --api-secret "$AMO_JWT_SECRET"
+      - name: Attach the builds to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # Passed through the environment, never written into the script, so a tag name cannot inject a command.
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          shopt -s nullglob
+          # Named like the other downloads, as the README describes them.
+          version="$(node -p "require('./package.json').version")"
+          for signed in .output/signed/*.xpi; do
+            mv "$signed" ".output/signed/dev-null-plus-plus-$version-firefox.xpi"
+          done
+          gh release upload "$TAG" .output/*-chrome.zip .output/*-firefox.zip .output/signed/*.xpi \
+            --repo "$GITHUB_REPOSITORY" --clobber
