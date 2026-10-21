@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 
-import { expect, SITE, test } from './fixtures';
+import { expect, SITE, switchFeature, test } from './fixtures';
 
 /**
  * Picture-in-picture on the real log. The test adds a video card like the site's own
@@ -170,10 +170,7 @@ test('can be switched off on the settings page', async ({ page }) => {
   const automatic = page.getByRole('radiogroup', { name: 'Automatic picture-in-picture' });
 
   await expect(automatic).toBeVisible();
-  await page
-    .getByRole('radiogroup', { name: 'Picture-in-picture', exact: true })
-    .getByRole('radio', { name: 'Off' })
-    .click();
+  await switchFeature(page, 'Picture-in-picture', 'Off');
   // Automatic is a choice within picture-in-picture, so it goes with it.
   await expect(automatic).toBeHidden();
   await addVideo(page);
