@@ -1,5 +1,6 @@
 import { defineConfig } from 'wxt';
 
+import { DATA_COLLECTION } from './src/core/consent';
 import {
   DEV_SERVER,
   extensionPagesCsp,
@@ -11,6 +12,8 @@ import {
 
 export default defineConfig({
   srcDir: 'src',
+  // Manifest V3 everywhere, Firefox included, so both browsers get the same permissions model and policies.
+  manifestVersion: 3,
   modules: ['@wxt-dev/auto-icons'],
   autoIcons: {
     baseIconPath: 'assets/icon.svg',
@@ -38,7 +41,18 @@ export default defineConfig({
     externally_connectable: browser === 'firefox' ? undefined : { ids: [] },
     browser_specific_settings:
       browser === 'firefox'
-        ? { gecko: { id: 'dev-null-plus-plus@aaqidmasoodi', strict_min_version: '128.0' } }
+        ? {
+            gecko: {
+              id: 'dev-null-plus-plus@aaqidmasoodi',
+              // 140 is the current Extended Support Release, and the first with built-in data consent.
+              strict_min_version: '140.0',
+              // Nothing is sent anywhere by itself. A draft goes to your AI provider only when you ask for a rewrite,
+              // so that is optional, and asked for when you connect a provider (src/core/consent.ts).
+              data_collection_permissions: { required: ['none'], optional: [...DATA_COLLECTION] },
+            },
+            // Firefox for Android has built-in data consent from 142.
+            gecko_android: { strict_min_version: '142.0' },
+          }
         : undefined,
   }),
   webExt: {

@@ -19,6 +19,7 @@ import {
   type AiStatus,
   type ProviderId,
 } from '@/core/ai';
+import { dataConsentRequest, hasDataConsentApi } from '@/core/consent';
 import { el } from '@/core/dom';
 import { createLogger } from '@/core/logger';
 
@@ -203,10 +204,13 @@ async function onConnect(apiKey: string): Promise<void> {
     return;
   }
 
-  // Asking for permission has to happen straight away, while the click still counts as the user's own action.
-  const permission = PROVIDERS[provider].needsHostPermission
-    ? browser.permissions.request({ origins: [hostPermission(provider)] })
-    : Promise.resolve(true);
+  // Asking for permission has to happen straight away, while the click still counts as the user's own action. Firefox
+  // also asks, in the same request, for leave to send drafts to the provider when a rewrite is asked for.
+  const request = {
+    ...(PROVIDERS[provider].needsHostPermission ? { origins: [hostPermission(provider)] } : {}),
+    ...dataConsentRequest(),
+  };
+  const permission = Object.keys(request).length > 0 ? browser.permissions.request(request) : Promise.resolve(true);
 
   state.busy = true;
   state.error = null;
@@ -227,7 +231,9 @@ async function onConnect(apiKey: string): Promise<void> {
     }
 
     if (!granted) {
-      state.error = `${PROVIDERS[provider].name} needs access to ${PROVIDERS[provider].origin} to work.`;
+      state.error = hasDataConsentApi()
+        ? `To connect ${PROVIDERS[provider].name}, allow /dev/null++ to send it your drafts when you ask for a rewrite.`
+        : `${PROVIDERS[provider].name} needs access to ${PROVIDERS[provider].origin} to work.`;
 
       return;
     }
@@ -289,6 +295,11 @@ async function onDisconnect(credential: AiCredential): Promise<void> {
     // Give back access the provider no longer needs.
     if (PROVIDERS[credential.provider].needsHostPermission) {
       await browser.permissions.remove({ origins: [hostPermission(credential.provider)] });
+    }
+
+    // And, in Firefox, the leave to send drafts anywhere.
+    if (hasDataConsentApi()) {
+      await browser.permissions.remove(dataConsentRequest());
     }
 
     state.credential = null;

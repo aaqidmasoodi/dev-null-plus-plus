@@ -17,6 +17,8 @@ export interface RewriteDependencies {
   readCredential: () => Promise<AiCredential | null>;
   complete: (request: CompletionRequest) => Promise<string>;
   limiter: RateLimiter;
+  /** Whether a draft may leave the browser at all: in Firefox, only once you have allowed it. */
+  hasConsent: () => Promise<boolean>;
 }
 
 /**
@@ -74,6 +76,10 @@ export async function rewrite(request: RewriteRequest, dependencies: RewriteDepe
 
   if (credential === null) {
     return fail('not-configured');
+  }
+
+  if (!(await dependencies.hasConsent())) {
+    return fail('no-consent');
   }
 
   if (!dependencies.limiter.take()) {

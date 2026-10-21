@@ -77,6 +77,7 @@ export function parseAiStatus(value: unknown): AiStatus | null {
 export type RewriteErrorCode =
   | 'disabled'
   | 'not-configured'
+  | 'no-consent'
   | 'empty'
   | 'too-long'
   | 'rate-limited'
@@ -115,6 +116,7 @@ export function hasContent(text: string): boolean {
 const REWRITE_ERROR_CODES: readonly RewriteErrorCode[] = [
   'disabled',
   'not-configured',
+  'no-consent',
   'empty',
   'too-long',
   'rate-limited',
@@ -153,6 +155,8 @@ export function parseRewriteResult(value: unknown): RewriteResult {
 export const REWRITE_ERROR_MESSAGES: Record<RewriteErrorCode, string> = {
   disabled: 'Rewrite with AI is turned off in /dev/null++ settings.',
   'not-configured': 'Add an API key in /dev/null++ settings first.',
+  'no-consent':
+    'Firefox is not letting /dev/null++ send drafts to your AI provider. Allow it in the add-on’s permissions, or connect again in /dev/null++ settings.',
   empty: 'Write something first.',
   'too-long': 'The rewrite came out too long. Try Shorten.',
   'rate-limited':

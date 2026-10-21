@@ -34,7 +34,11 @@ Every feature can be switched off on the settings page.
 - **Who to follow cards.** Who to follow becomes a stack of cards with a big picture. Swipe a card away, as with its
   ✕, and the site brings in someone new at the back of the stack. Follow from the card, through the site's own button.
 
-## Install (development build)
+## Install
+
+dev/null++ works in Chrome (and Chromium browsers like Edge, Brave and Arc) and in Firefox 140 or newer.
+
+### Chrome
 
 ```sh
 npm install
@@ -44,6 +48,28 @@ npm run build
 1. Open `chrome://extensions` and turn on **Developer mode**.
 2. Click **Load unpacked** and pick `.output/chrome-mv3`.
 3. Open [dev-null.sh](https://dev-null.sh). Tabs that are already open pick the extension up without a reload.
+
+### Firefox
+
+Firefox only keeps add-ons that Mozilla has signed. Signed builds (`.xpi`) are attached to each
+[GitHub release](https://github.com/aaqidmasoodi/dev-null-plus-plus/releases): open one in Firefox, or drag it into a
+Firefox window, and click **Add**.
+
+To try a build of your own, load it in Firefox's debugging mode. It stays until Firefox is closed:
+
+```sh
+npm install
+npm run build:firefox
+```
+
+1. Open `about:debugging#/runtime/this-firefox`.
+2. Click **Load Temporary Add-on…** and pick `.output/firefox-mv3/manifest.json`.
+3. Open [dev-null.sh](https://dev-null.sh). If the toolbar icon shows **!**, Firefox has not given it access to the
+   site: click the icon and allow it.
+
+Firefox asks before an add-on sends any of your data anywhere. dev/null++ sends nothing by itself, so it asks for
+nothing at install. If you connect an AI provider, Firefox asks once whether your drafts may be sent to it when you ask
+for a rewrite.
 
 ### Working on it
 
@@ -57,15 +83,16 @@ you are never testing in a signed-out profile by accident.
 
 ## Scripts
 
-| Script              | What it does                                                                   |
-| ------------------- | ------------------------------------------------------------------------------ |
-| `npm run dev`       | Watch mode, Chrome                                                             |
-| `npm run build`     | Production build into `.output/chrome-mv3`                                     |
-| `npm run zip`       | Store-ready zip in `.output/`                                                  |
-| `npm run check`     | Type-check, lint, format check and unit tests. CI runs this.                   |
-| `npm test`          | Unit tests (Vitest, happy-dom)                                                 |
-| `npm run test:e2e`  | Builds, then runs the extension in Chromium against the live site (Playwright) |
-| `npm run *:firefox` | Firefox variants of `dev`, `build` and `zip`                                   |
+| Script                     | What it does                                                                             |
+| -------------------------- | ---------------------------------------------------------------------------------------- |
+| `npm run dev`              | Watch mode, Chrome                                                                       |
+| `npm run build`            | Production build into `.output/chrome-mv3`                                               |
+| `npm run zip`              | Store-ready zip in `.output/`                                                            |
+| `npm run check`            | Type-check, lint, format check and unit tests. CI runs this.                             |
+| `npm test`                 | Unit tests (Vitest, happy-dom)                                                           |
+| `npm run test:e2e`         | Builds, then runs the extension in Chromium against the live site (Playwright)           |
+| `npm run test:e2e:firefox` | Builds, then checks the extension starts and its pages work in a real Firefox (Selenium) |
+| `npm run *:firefox`        | Firefox variants of `dev`, `build` and `zip`                                             |
 
 The first e2e run needs a browser: `npx playwright install chromium`.
 
@@ -138,6 +165,8 @@ follows.
   as "Read your browsing history"; it is only ever read for frames inside dev-null.sh, and nothing is kept.
 - `https://api.groq.com/*`, optional: asked for only when you connect Groq, whose API does not otherwise allow
   extensions to call it, and given back when you disconnect.
+- Firefox only, optional: leave to send "website content", asked for when you connect an AI provider, since your draft
+  is sent to it when you ask for a rewrite. Nothing else is ever sent, and it is given back when you disconnect.
 
 ## Logo
 
@@ -146,5 +175,9 @@ not be used outside dev/null++ without permission. See [LOGO.md](LOGO.md).
 
 ## Release
 
-`npm run zip` produces the Chrome Web Store upload in `.output/`. Bump `version` in `package.json` first. The manifest
-version is read from it.
+Bump `version` in `package.json` first; the manifest version is read from it. Then publish a GitHub release. The release
+workflow builds both browsers and attaches the Chrome zip and the Firefox build to it. With an addons.mozilla.org API
+key in the repository secrets `AMO_JWT_ISSUER` and `AMO_JWT_SECRET`, Mozilla signs the Firefox build so it installs in
+any Firefox; without one, the unsigned build is attached for debugging mode.
+
+`npm run zip` and `npm run zip:firefox` produce the same uploads locally, in `.output/`.
