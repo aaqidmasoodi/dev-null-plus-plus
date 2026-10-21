@@ -24,7 +24,9 @@ test('asks for no more permissions than it needs', async ({ background }) => {
     { resources: ['vault.html'], matches: ['https://dev-null.sh/*'], use_dynamic_url: true },
   ]);
   expect(manifest.externally_connectable).toEqual({ ids: [] });
+  // The main script, the hydration probe, and the early Who to follow skeleton: all on dev-null.sh, and nowhere else.
   expect(manifest.content_scripts?.flatMap((script) => script.matches)).toEqual([
+    'https://dev-null.sh/*',
     'https://dev-null.sh/*',
     'https://dev-null.sh/*',
   ]);

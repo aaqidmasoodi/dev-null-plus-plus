@@ -93,6 +93,8 @@ class Deck {
   #drawn = '';
   #drag: Drag | null = null;
   #isMoving = false;
+  /** The nudge playing, if one is: a press stops it, so it never fights a drag. */
+  #nudging: Animation[] = [];
   /** How many people have been swiped away here. */
   #swipes = 0;
   #top: string | null = null;
@@ -438,19 +440,25 @@ class Deck {
 
     const timing = { duration: 900, easing: 'ease-in-out' };
 
-    top.animate(
-      [
-        { transform: 'none' },
-        { transform: 'translateX(-28px) rotate(-1.4deg)', offset: 0.35 },
-        { transform: 'translateX(8px) rotate(0.4deg)', offset: 0.7 },
-        { transform: 'none' },
-      ],
-      timing,
-    );
-    next?.animate(
-      [{ transform: risen(1, 0) }, { transform: risen(1, 0.35), offset: 0.35 }, { transform: risen(1, 0) }],
-      timing,
-    );
+    this.#nudging = [
+      top.animate(
+        [
+          { transform: 'none' },
+          { transform: 'translateX(-28px) rotate(-1.4deg)', offset: 0.35 },
+          { transform: 'translateX(8px) rotate(0.4deg)', offset: 0.7 },
+          { transform: 'none' },
+        ],
+        timing,
+      ),
+      ...(next === null
+        ? []
+        : [
+            next.animate(
+              [{ transform: risen(1, 0) }, { transform: risen(1, 0.35), offset: 0.35 }, { transform: risen(1, 0) }],
+              timing,
+            ),
+          ]),
+    ];
   }
 
   readonly #onPointerDown = (event: PointerEvent): void => {
@@ -469,6 +477,11 @@ class Deck {
       return;
     }
 
+    for (const animation of this.#nudging) {
+      animation.cancel();
+    }
+
+    this.#nudging = [];
     this.#drag = {
       pointerId: event.pointerId,
       startX: event.clientX,
@@ -540,7 +553,11 @@ class Deck {
 
     const [first = { x: event.clientX, time: event.timeStamp }] = drag.samples;
     const speed = (event.clientX - first.x) / Math.max(event.timeStamp - first.time, 1);
-    const isGoing = Math.abs(drag.x) > top.offsetWidth * SWIPE_SHARE || Math.abs(speed) > FLICK_SPEED;
+    // Far enough, or flicked: but a flick only counts the way the card is out, so bringing it back quickly to let go
+    // in the middle never sends it the other way.
+    const isFlicked =
+      Math.abs(speed) > FLICK_SPEED && Math.sign(speed) === Math.sign(drag.x) && Math.abs(drag.x) > SLOP_PX * 2;
+    const isGoing = Math.abs(drag.x) > top.offsetWidth * SWIPE_SHARE || isFlicked;
 
     top.style.transform = '';
     this.#raise(0, false);
