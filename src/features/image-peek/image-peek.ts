@@ -32,8 +32,11 @@ const SLOP_PX = 8;
 const POP_SCALE = 1.025;
 /** The peek's own rounded corners at rest. */
 const PEEK_RADIUS = 12;
-/** How long after a peek the click it ends in is still recognised, and swallowed. */
-const SWALLOW_MS = 3_000;
+/**
+ * How long after letting go the click a held press ends in is still recognised, and swallowed. Counted from letting go,
+ * not from the press: however long it was held, its click never opens the picture.
+ */
+const CLICK_AFTER_RELEASE_MS = 1_000;
 /** The most an avatar grows to, across: big enough to see the face, not a wall of pixels. */
 const AVATAR_PEEK_PX = 480;
 /** How long the larger picture takes to fade in over the smaller one. */
@@ -426,7 +429,8 @@ export class ImagePeek {
   readonly #enabled: () => boolean;
   #press: Press | null = null;
   #peek: Peek | null = null;
-  #swallow: { target: Element; until: number } | null = null;
+  /** The click to swallow: on `target`, until `until`, or, while the press is still held, with no end yet. */
+  #swallow: { target: Element; until: number | null } | null = null;
 
   constructor({ enabled, signal }: ImagePeekOptions) {
     this.#enabled = enabled;
@@ -439,8 +443,8 @@ export class ImagePeek {
 
     window.addEventListener('pointerdown', this.#onPointerDown, listen);
     window.addEventListener('pointermove', this.#onPointerMove, { ...listen, passive: true });
-    window.addEventListener('pointerup', this.#release, listen);
-    window.addEventListener('pointercancel', this.#release, listen);
+    window.addEventListener('pointerup', this.#onPointerUp, listen);
+    window.addEventListener('pointercancel', this.#onPointerUp, listen);
     // Not captured: a captured `blur` also hears every element on the page losing focus, as one does whenever a press
     // moves focus to the image's link. Only the window itself losing focus sends the image back.
     window.addEventListener('blur', this.#onWindowBlur, { signal });
@@ -473,6 +477,11 @@ export class ImagePeek {
 
   readonly #onPointerDown = (event: PointerEvent): void => {
     this.#cancelPress();
+
+    // A new press means the last one ended, even if its letting go was never heard, as outside the window.
+    if (this.#swallow?.until === null) {
+      this.#swallow = null;
+    }
 
     if (
       this.#peek !== null ||
@@ -556,7 +565,7 @@ export class ImagePeek {
 
   /** Held past a click: the click the release ends in lands on the picture, or its link, and must not also open it. */
   #swallowClickOn(image: HTMLImageElement): void {
-    this.#swallow = { target: image.closest('a, button') ?? image, until: performance.now() + SWALLOW_MS };
+    this.#swallow = { target: image.closest('a, button') ?? image, until: null };
   }
 
   /**
@@ -582,6 +591,15 @@ export class ImagePeek {
     press.image.addEventListener('error', settle, { once: true, signal: waiting.signal });
     press.timer = window.setTimeout(settle, LOAD_WAIT_MS);
   }
+
+  /** Letting go: the click it ends in comes next, and the time to recognise it starts now. */
+  readonly #onPointerUp = (): void => {
+    if (this.#swallow !== null && this.#swallow.until === null) {
+      this.#swallow.until = performance.now() + CLICK_AFTER_RELEASE_MS;
+    }
+
+    this.#release();
+  };
 
   readonly #release = (): void => {
     this.#cancelPress();
@@ -638,9 +656,11 @@ export class ImagePeek {
       return;
     }
 
+    const isSwallowing = this.#swallowing();
+
     this.#swallow = null;
 
-    if (performance.now() < swallow.until && event.target instanceof Node && swallow.target.contains(event.target)) {
+    if (isSwallowing && event.target instanceof Node && swallow.target.contains(event.target)) {
       event.preventDefault();
       event.stopPropagation();
     }
@@ -655,6 +675,8 @@ export class ImagePeek {
   }
 
   #swallowing(): boolean {
-    return this.#swallow !== null && performance.now() < this.#swallow.until;
+    const until = this.#swallow?.until;
+
+    return until === null || (until !== undefined && performance.now() < until);
   }
 }
