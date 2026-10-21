@@ -29,8 +29,18 @@ export async function switchFeature(page: Page, name: string, value: 'Off' | 'On
   }).toPass();
 }
 
-/** Loads the built extension into a fresh Chromium profile, and collects the page's console errors. */
-export const test = base.extend<{ context: BrowserContext; page: Page; errors: string[]; background: Worker }>({
+/**
+ * Loads the built extension into a fresh Chromium profile, and collects the page's console errors. The welcome counts
+ * as seen, so it doesn't open over every test; its own tests set `welcomed` to false.
+ */
+export const test = base.extend<{
+  welcomed: boolean;
+  context: BrowserContext;
+  page: Page;
+  errors: string[];
+  background: Worker;
+}>({
+  welcomed: [true, { option: true }],
   // eslint-disable-next-line no-empty-pattern -- Playwright fixtures must destructure their dependencies.
   context: async ({}, use) => {
     const context = await chromium.launchPersistentContext('', {
@@ -46,7 +56,15 @@ export const test = base.extend<{ context: BrowserContext; page: Page; errors: s
   errors: async ({}, use) => {
     await use([]);
   },
-  page: async ({ context, errors }, use) => {
+  page: async ({ context, background, welcomed, errors }, use) => {
+    if (welcomed) {
+      await background.evaluate(async () => {
+        await (
+          globalThis as unknown as { chrome: { storage: { local: { set: (items: unknown) => Promise<void> } } } }
+        ).chrome.storage.local.set({ welcomed: true });
+      });
+    }
+
     const page = await context.newPage();
 
     page.on('console', (message) => {

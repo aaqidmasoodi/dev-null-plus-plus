@@ -165,6 +165,31 @@ dd {
   gap: 1rem;
 }
 
+/* An outline button, like the site's (components/ui/button.tsx, variant "outline", size "sm"). */
+.button {
+  justify-self: start;
+  height: 2rem;
+  padding: 0 0.75rem;
+  border: 1px solid var(--input, var(--border, GrayText));
+  border-radius: calc(var(--radius, 0.5rem) - 2px);
+  background: var(--background, Canvas);
+  color: var(--foreground, CanvasText);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.button:hover {
+  background: var(--accent, Canvas);
+  color: var(--accent-foreground, CanvasText);
+}
+
+.button:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--ring, Highlight) 50%, transparent);
+  outline-offset: 1px;
+}
+
 /* A choice within a feature: its own title and what it does, with its switch beside them. */
 .option {
   display: flex;

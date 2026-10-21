@@ -38,7 +38,7 @@ export function createFieldList(fields: readonly Field[]): HTMLDListElement {
   return list;
 }
 
-export function aboutSection(version: string): SettingsSection {
+export function aboutSection(version: string, onShowWelcome: () => void): SettingsSection {
   return {
     id: 'about',
     title: 'About',
@@ -52,11 +52,26 @@ export function aboutSection(version: string): SettingsSection {
       dot.setAttribute('aria-hidden', 'true');
       status.append(dot, 'Installed and running');
 
-      return createFieldList([
-        { label: 'status', value: status },
-        { label: 'version', value: `v${version}`, mono: true },
-        { label: 'data', value: 'Stays in your browser' },
-      ]);
+      const welcome = document.createElement('button');
+
+      welcome.type = 'button';
+      welcome.className = 'button';
+      welcome.textContent = 'Show the welcome again';
+      welcome.addEventListener('click', onShowWelcome);
+
+      const stack = document.createElement('div');
+
+      stack.className = 'stack';
+      stack.append(
+        createFieldList([
+          { label: 'status', value: status },
+          { label: 'version', value: `v${version}`, mono: true },
+          { label: 'data', value: 'Stays in your browser' },
+        ]),
+        welcome,
+      );
+
+      return stack;
     },
   };
 }

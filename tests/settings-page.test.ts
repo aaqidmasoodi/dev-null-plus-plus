@@ -10,7 +10,7 @@ import { renderSite } from './fixtures/site';
 const hosts = (): NodeListOf<Element> => document.querySelectorAll(`[${OWNED_ATTRIBUTE}="${SETTINGS_PAGE_ROLE}"]`);
 const pages: SettingsPage[] = [];
 const createPage = (): SettingsPage => {
-  const page = new SettingsPage({ sections: [aboutSection('1.2.3')] });
+  const page = new SettingsPage({ sections: [aboutSection('1.2.3', () => undefined)] });
 
   pages.push(page);
 

@@ -104,7 +104,8 @@ test.describe('settings', () => {
       ).chrome.storage.local.get(),
     );
 
-    expect(stored).toEqual({ aiStatus: { provider: 'openai', model: 'gpt-5-mini' } });
+    // Besides which provider is connected, only that the welcome was seen.
+    expect(stored).toEqual({ welcomed: true, aiStatus: { provider: 'openai', model: 'gpt-5-mini' } });
     expect(JSON.stringify(stored)).not.toContain(KEY);
 
     await frame.getByRole('button', { name: 'Disconnect' }).click();

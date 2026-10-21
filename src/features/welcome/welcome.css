@@ -1,0 +1,267 @@
+/*
+ * The welcome tour: a dialog like the site's own (components/ui/dialog.tsx), over a dimmed page. It lives in a shadow
+ * root on <body> and reads the site's theme tokens, so it matches light and dark mode. Buttons follow the site's
+ * (components/ui/button.tsx).
+ */
+
+:host {
+  all: initial;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+dialog {
+  width: min(44rem, calc(100vw - 2rem));
+  max-width: none;
+  max-height: calc(100dvh - 2rem);
+  margin: auto;
+  padding: 0;
+  overflow: hidden auto;
+  border: 1px solid var(--border, GrayText);
+  border-radius: calc(var(--radius, 0.5rem) * 1.5);
+  background: var(--popover, Canvas);
+  box-shadow: 0 32px 80px -24px rgb(0 0 0 / 0.55);
+  color: var(--popover-foreground, CanvasText);
+  font-family: var(--font-geist, ui-sans-serif, system-ui, sans-serif);
+  font-size: 1rem;
+  line-height: 1.5rem;
+}
+
+dialog:focus {
+  outline: none;
+}
+
+dialog::backdrop {
+  background: rgb(0 0 0 / 0.5);
+}
+
+.card {
+  position: relative;
+}
+
+.content {
+  overflow: clip;
+}
+
+/* The ✕, top right, over the picture. */
+.close {
+  position: absolute;
+  z-index: 1;
+  top: 1rem;
+  right: 1rem;
+  display: grid;
+  width: 2.25rem;
+  height: 2.25rem;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: calc(var(--radius, 0.5rem) - 2px);
+  background: transparent;
+  color: var(--muted-foreground, GrayText);
+  cursor: pointer;
+}
+
+.close:hover {
+  background: var(--accent, Canvas);
+  color: var(--accent-foreground, CanvasText);
+}
+
+.close svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+/*
+ * The picture: where each feature will later show itself in motion, in a GIF or video's own 16:9. For now, its icon in
+ * its lane's colour. On a short screen it gives up height first, so the text and buttons always fit.
+ */
+.picture {
+  --tint: var(--lane-0, #d9480f);
+
+  display: grid;
+  aspect-ratio: 16 / 9;
+  max-height: calc(100dvh - 16rem);
+  place-items: center;
+  border-bottom: 1px solid var(--border, GrayText);
+  background:
+    radial-gradient(circle at 50% 120%, color-mix(in srgb, var(--tint) 22%, transparent), transparent 70%),
+    var(--muted, Canvas);
+}
+
+.picture[data-kind='logo'] {
+  background:
+    radial-gradient(circle at 30% 130%, color-mix(in srgb, var(--lane-0, #d9480f) 24%, transparent), transparent 60%),
+    radial-gradient(circle at 75% 120%, color-mix(in srgb, var(--lane-3, #0c8599) 18%, transparent), transparent 60%),
+    var(--muted, Canvas);
+}
+
+.logo {
+  width: 8rem;
+  height: 8rem;
+  color: var(--foreground, CanvasText);
+}
+
+.badge {
+  display: grid;
+  width: 6rem;
+  height: 6rem;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--tint) 30%, transparent);
+  border-radius: 1.5rem;
+  background: color-mix(in srgb, var(--tint) 14%, var(--popover, Canvas));
+  color: var(--tint);
+}
+
+.badge svg {
+  width: 2.75rem;
+  height: 2.75rem;
+}
+
+.text {
+  padding: 1.5rem 2rem 0;
+}
+
+h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 2rem;
+}
+
+p {
+  min-height: 3rem;
+  margin: 0.375rem 0 0;
+  color: var(--muted-foreground, GrayText);
+  text-wrap: pretty;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.5rem 2rem 2rem;
+}
+
+/* How far along: one dot per step, the current one stretched. */
+.dots {
+  display: flex;
+  gap: 0.375rem;
+}
+
+.dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--border, GrayText);
+  cursor: pointer;
+  transition:
+    width 200ms,
+    background-color 200ms;
+}
+
+.dot[aria-current='step'] {
+  width: 1.5rem;
+  background: var(--foreground, CanvasText);
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.actions button {
+  display: inline-flex;
+  height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  padding: 0 1.25rem;
+  border: 1px solid transparent;
+  border-radius: calc(var(--radius, 0.5rem) - 2px);
+  font: inherit;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.actions svg {
+  width: 1rem;
+  height: 1rem;
+  margin-right: -0.25rem;
+}
+
+.primary {
+  background: var(--primary, AccentColor);
+  color: var(--primary-foreground, AccentColorText);
+}
+
+.primary:hover {
+  background: var(--primary-hover, var(--primary, AccentColor));
+}
+
+.secondary {
+  border-color: var(--input, var(--border, GrayText)) !important;
+  background: var(--background, Canvas);
+  color: var(--foreground, CanvasText);
+}
+
+.ghost {
+  background: transparent;
+  color: var(--foreground, CanvasText);
+}
+
+.secondary:hover,
+.ghost:hover {
+  background: var(--accent, Canvas);
+  color: var(--accent-foreground, CanvasText);
+}
+
+button:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--ring, Highlight) 50%, transparent);
+  outline-offset: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dot {
+    transition: none;
+  }
+}
+
+/* On a phone: closer edges, so the words keep their room. */
+@media (max-width: 30rem) {
+  .text {
+    padding: 1.25rem 1.25rem 0;
+  }
+
+  /* The dots on a line of their own, over buttons that share the width. */
+  .footer {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 1.25rem;
+  }
+
+  .dots {
+    justify-content: center;
+  }
+
+  .actions button {
+    flex: 1;
+  }
+
+  h2 {
+    font-size: 1.25rem;
+    line-height: 1.75rem;
+  }
+
+  .actions button {
+    padding: 0 1rem;
+  }
+}

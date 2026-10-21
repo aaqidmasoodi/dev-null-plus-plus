@@ -29,6 +29,7 @@ import { NavItem } from '@/features/nav-item/nav-item';
 import { SettingsNavigator } from '@/features/settings-page/navigator';
 import { aboutSection } from '@/features/settings-page/sections';
 import { SettingsPage } from '@/features/settings-page/settings-page';
+import { Welcome } from '@/features/welcome/welcome';
 import { peekCandidate } from '@/site/images';
 import { isPlainClick } from '@/site/navigate';
 import { findHomePath, isFullScreenLayout, LAYOUT_ATTRIBUTES } from '@/site/selectors';
@@ -93,9 +94,13 @@ export default defineContentScript({
       return;
     }
 
+    // A short tour of what the extension adds, the first time the site opens after installing.
+    const welcome = new Welcome({ onOpenSettings: openSettings, signal: ctx.signal });
     const settingsPage = new SettingsPage({
       sections: [
-        aboutSection(browser.runtime.getManifest().version),
+        aboutSection(browser.runtime.getManifest().version, () => {
+          welcome.show();
+        }),
         aiSection({
           store,
           saveSettings: writeSettings,
@@ -186,6 +191,7 @@ export default defineContentScript({
     const sync = (): void => {
       syncComposer();
       syncAutoLoad();
+      welcome.showIfPending();
 
       try {
         settingsNavigator.settle();
@@ -211,6 +217,9 @@ export default defineContentScript({
 
     sync();
     observeDom(sync, ctx.signal);
+    welcome.start().catch((error: unknown) => {
+      logger.error('Could not show the welcome.', error);
+    });
     store.subscribe(() => {
       syncComposer();
       syncAutoLoad();
@@ -262,6 +271,7 @@ export default defineContentScript({
       preview.destroy();
       imagePeek.destroy();
       pip.destroy();
+      welcome.destroy();
       removeTakeover();
     });
 
