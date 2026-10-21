@@ -101,7 +101,11 @@ function roundedCorners(image: HTMLImageElement): number {
 
   for (let depth = 0; element !== null && depth < 4; depth++, element = element.parentElement) {
     const style = getComputedStyle(element);
-    const radius = Number.parseFloat(style.borderTopLeftRadius);
+    const value = style.borderTopLeftRadius;
+    // A percentage is of the element's own width, as for a `50%` circle.
+    const radius = value.endsWith('%')
+      ? (Number.parseFloat(value) / 100) * element.getBoundingClientRect().width
+      : Number.parseFloat(value);
 
     if (radius > 0 && (element === image || style.overflow !== 'visible')) {
       return radius;

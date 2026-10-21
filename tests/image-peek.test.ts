@@ -71,6 +71,15 @@ describe('the first frame of a peek', () => {
     // 150px is hidden on each side on the page: 300px in the peek's own, twice as large, coordinates.
     expect(frame.clipPath).toBe('inset(0px 300px 0px 300px round 16px)');
   });
+
+  it('starts a fully rounded avatar as an exact circle, so it opens smoothly into the peek’s corners', () => {
+    const avatar = { left: 10, top: 20, width: 80, height: 80 };
+    // The site's `rounded-full` is reported as millions of pixels.
+    const frame = frameAt({ left: 0, top: 0, width: 480, height: 480 }, avatar, avatar, 33_554_400);
+
+    // Half the peek: a circle, not a radius it would take nearly the whole grow to come down from.
+    expect(frame.clipPath).toBe('inset(0px 0px 0px 0px round 240px)');
+  });
 });
 
 describe('peekable images', () => {
