@@ -76,8 +76,8 @@ dialog::backdrop {
 }
 
 /*
- * The picture: where each feature will later show itself in motion, in a GIF or video's own 16:9. For now, its icon in
- * its lane's colour. On a short screen it gives up height first, so the text and buttons always fit.
+ * The picture: each step's feature at work, as a short loop (see motion/), in a GIF or video's own 16:9. On a short
+ * screen it gives up height first, so the text and buttons always fit.
  */
 .picture {
   --tint: var(--lane-0, #d9480f);
@@ -90,35 +90,6 @@ dialog::backdrop {
   background:
     radial-gradient(circle at 50% 120%, color-mix(in srgb, var(--tint) 22%, transparent), transparent 70%),
     var(--muted, Canvas);
-}
-
-.picture[data-kind='logo'] {
-  background:
-    radial-gradient(circle at 30% 130%, color-mix(in srgb, var(--lane-0, #d9480f) 24%, transparent), transparent 60%),
-    radial-gradient(circle at 75% 120%, color-mix(in srgb, var(--lane-3, #0c8599) 18%, transparent), transparent 60%),
-    var(--muted, Canvas);
-}
-
-.logo {
-  width: 8rem;
-  height: 8rem;
-  color: var(--foreground, CanvasText);
-}
-
-.badge {
-  display: grid;
-  width: 6rem;
-  height: 6rem;
-  place-items: center;
-  border: 1px solid color-mix(in srgb, var(--tint) 30%, transparent);
-  border-radius: 1.5rem;
-  background: color-mix(in srgb, var(--tint) 14%, var(--popover, Canvas));
-  color: var(--tint);
-}
-
-.badge svg {
-  width: 2.75rem;
-  height: 2.75rem;
 }
 
 .text {

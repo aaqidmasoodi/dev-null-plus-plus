@@ -19,7 +19,7 @@ test('welcomes a new install once, with a step for each feature', async ({ page,
   await expect(welcome(page).getByRole('heading')).toHaveText('Welcome to /dev/null++');
 
   // The arrow keys page through, and never reach the site's own shortcuts.
-  for (let step = 0; step < 6; step++) {
+  for (let step = 0; step < 7; step++) {
     await page.keyboard.press('ArrowRight');
   }
 
@@ -36,7 +36,7 @@ test('welcomes a new install once, with a step for each feature', async ({ page,
 
 test('can open the settings page, and be shown again from there', async ({ page }) => {
   await page.goto(SITE);
-  await welcome(page).getByRole('button', { name: 'Step 7 of 7' }).click();
+  await welcome(page).getByRole('button', { name: 'Step 8 of 8' }).click();
   await welcome(page).getByRole('button', { name: 'Open settings' }).click();
   await expect(page).toHaveURL(/#dev-null-plus-plus$/);
   await expect(welcome(page)).toHaveCount(0);

@@ -9,5 +9,5 @@
     "verbatimModuleSyntax": true,
     "types": ["vite/client"]
   },
-  "include": [".wxt/wxt.d.ts", "src", "tests", "e2e", "*.config.ts"]
+  "include": [".wxt/wxt.d.ts", "src", "tests", "e2e", "scripts", "*.config.ts"]
 }
