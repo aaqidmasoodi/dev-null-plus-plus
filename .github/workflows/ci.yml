@@ -43,8 +43,13 @@ jobs:
           if-no-files-found: error
 
   e2e:
-    name: End-to-end against live dev-null.sh
+    name: End-to-end against live dev-null.sh (${{ matrix.shard }}/4)
     runs-on: ubuntu-latest
+    # Split over four machines at once, which is most of the time CI takes.
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -54,12 +59,17 @@ jobs:
           node-version-file: package.json
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e
+      # The runner already has Chromium's system libraries, so only the browser is fetched, and kept between runs.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - run: npx playwright install chromium
+      - run: npm run test:e2e -- --shard=${{ matrix.shard }}/4
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
         with:
-          name: playwright-traces
+          name: playwright-traces-${{ matrix.shard }}
           path: test-results
 
   firefox:

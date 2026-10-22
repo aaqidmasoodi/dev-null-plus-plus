@@ -12,6 +12,8 @@ export default defineConfig({
   timeout: 60_000,
   retries: process.env.CI ? 2 : 0,
   workers: 1,
+  // Each test has its own browser, so CI can split them evenly across machines by test, not by file.
+  fullyParallel: true,
   reporter: process.env.CI ? [['github'], ['list']] : 'list',
   use: {
     trace: 'retain-on-failure',
