@@ -223,8 +223,9 @@ describe('rewrite', () => {
       autoPictureInPicture: true,
       whoToFollowCards: true,
       themes: false,
+      themeBrush: true,
     },
-    theme: { preset: 'terminal-modern' },
+    theme: { preset: 'terminal-modern', custom: null },
   });
   const json = (value: unknown): Promise<string> => Promise.resolve(JSON.stringify(value));
   const dependencies = (overrides: Partial<RewriteDependencies> = {}): RewriteDependencies => ({
@@ -539,8 +540,9 @@ describe('message and data validation', () => {
         autoPictureInPicture: true,
         whoToFollowCards: true,
         themes: false,
+        themeBrush: true,
       },
-      theme: { preset: 'terminal-modern' },
+      theme: { preset: 'terminal-modern', custom: null },
     });
     expect(parseSettings({ features: { autoLoadNewCommits: false, unknown: true } })).toEqual({
       features: {
@@ -552,8 +554,9 @@ describe('message and data validation', () => {
         autoPictureInPicture: true,
         whoToFollowCards: true,
         themes: false,
+        themeBrush: true,
       },
-      theme: { preset: 'terminal-modern' },
+      theme: { preset: 'terminal-modern', custom: null },
     });
     expect(parseAiStatus({ provider: 'openai', model: 'gpt-5' })).toEqual({ provider: 'openai', model: 'gpt-5' });
     expect(parseAiStatus({ provider: 'openai', model: 'bad model id!' })).toBeNull();

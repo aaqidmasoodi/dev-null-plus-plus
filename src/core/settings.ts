@@ -1,3 +1,4 @@
+import { CUSTOM_THEME_ID, parseCustomTheme, type CustomTheme } from '@/themes/custom';
 import { DEFAULT_PRESET, isPresetId, type PresetId } from '@/themes/presets';
 
 /**
@@ -26,10 +27,18 @@ export interface Settings {
     whoToFollowCards: boolean;
     /** Restyling the whole site with one of the theme presets. Off by default: installing never restyles the site. */
     themes: boolean;
+    /** The brush on the edge of the page that opens the theme editor, while themes are on. */
+    themeBrush: boolean;
   };
-  /** Which theme, while themes are on. */
-  theme: { preset: PresetId };
+  theme: {
+    /** Which theme, while themes are on: a preset, or the user's own. */
+    preset: ThemeId;
+    /** The user's own theme, once they have made one. */
+    custom: CustomTheme | null;
+  };
 }
+
+export type ThemeId = PresetId | typeof CUSTOM_THEME_ID;
 
 export type FeatureName = keyof Settings['features'];
 
@@ -45,8 +54,9 @@ export const DEFAULT_SETTINGS: Settings = {
     autoPictureInPicture: true,
     whoToFollowCards: true,
     themes: false,
+    themeBrush: true,
   },
-  theme: { preset: DEFAULT_PRESET },
+  theme: { preset: DEFAULT_PRESET, custom: null },
 };
 
 export function parseSettings(value: unknown): Settings {
@@ -63,13 +73,17 @@ export function parseSettings(value: unknown): Settings {
     }
   }
 
-  // Only a theme that ships; anything else, including a theme from a newer or older version, is the default.
-  const preset =
+  const theme =
     typeof record.theme === 'object' && record.theme !== null
-      ? (record.theme as { preset?: unknown }).preset
-      : undefined;
+      ? (record.theme as { preset?: unknown; custom?: unknown })
+      : {};
+  // The user's own theme is checked in full, like anything else read back; one that fails is dropped, not repaired.
+  const custom = parseCustomTheme(theme.custom);
+  // Only a theme that ships, or the user's own if there is one; anything else is the default.
+  const preset =
+    isPresetId(theme.preset) || (theme.preset === CUSTOM_THEME_ID && custom !== null) ? theme.preset : DEFAULT_PRESET;
 
-  return { features, theme: { preset: isPresetId(preset) ? preset : DEFAULT_PRESET } };
+  return { features, theme: { preset, custom } };
 }
 
 export async function readSettings(): Promise<Settings> {

@@ -2,39 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import { contrast, isHex, mix, type Hex } from '@/themes/color';
 import { compileTheme } from '@/themes/compile';
+import { contrastPairs, TEXT } from '@/themes/contrast';
 import { DEFAULT_PRESET, isPresetId, PRESETS, presetById } from '@/themes/presets';
 import { SCHEMES, type Palette, type ThemeDefinition } from '@/themes/schema';
 import { validateTheme } from '@/themes/validate';
 
-/** WCAG AA for text, and for the outlines of controls and focus. */
-const TEXT = 4.5;
-const NON_TEXT = 3;
-
-/** Every pair of text and background the site draws with a theme's tokens, and what each must reach. */
 function pairs(palette: Palette): [string, Hex, Hex, number][] {
-  return [
-    ['foreground on background', palette.foreground, palette.background, TEXT],
-    ['foreground on card', palette.foreground, palette.card, TEXT],
-    ['card text', palette.cardForeground, palette.card, TEXT],
-    ['popover text', palette.popoverForeground, palette.popover, TEXT],
-    ['muted text on card', palette.mutedForeground, palette.card, TEXT],
-    ['muted text on background', palette.mutedForeground, palette.background, TEXT],
-    ['muted text on muted', palette.mutedForeground, palette.muted, TEXT],
-    ['text on primary', palette.primaryForeground, palette.primary, TEXT],
-    ['text on primary hover', palette.primaryForeground, palette.primaryHover, TEXT],
-    ['primary text on card', palette.primary, palette.card, TEXT],
-    ['primary text on background', palette.primary, palette.background, TEXT],
-    ['primary text on primary soft', palette.primary, palette.primarySoft, TEXT],
-    ['text on secondary', palette.secondaryForeground, palette.secondary, TEXT],
-    ['text on accent', palette.accentForeground, palette.accent, TEXT],
-    ['destructive text on card', palette.destructiveForeground, palette.card, TEXT],
-    ['links on card', palette.link, palette.card, TEXT],
-    ['visited links on card', palette.linkVisited, palette.card, TEXT],
-    ['title bar text at its start', palette.chromeForeground, palette.chromeStart, TEXT],
-    ['title bar text at its end', palette.chromeForeground, palette.chromeEnd, TEXT],
-    ['focus ring on card', palette.ring, palette.card, NON_TEXT],
-    ['focus ring on background', palette.ring, palette.background, NON_TEXT],
-  ];
+  return contrastPairs(palette).map(({ label, text, background, minimum }) => [label, text, background, minimum]);
 }
 
 /** A selector list's selectors, split on the commas outside any brackets. */

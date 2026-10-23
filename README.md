@@ -6,7 +6,7 @@
 
 Each has a switch under **/dev/null++** in the site's menu. All are on from the start, except themes, which you pick.
 
-<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/media/themes-dark.webp"><img src="docs/media/themes-light.webp" alt="dev-null.sh in each of the five themes" width="780"></picture><br><b>Themes</b><br>Five complete looks for the whole site: Terminal Modern, Neo Tokyo, Encyclopedia, Sugar Cloud and Retro OS.</p>
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/media/themes-dark.webp"><img src="docs/media/themes-light.webp" alt="dev-null.sh in each of the five themes" width="780"></picture><br><b>Themes</b><br>Five complete looks for the whole site: Terminal Modern, Neo Tokyo, Encyclopedia, Sugar Cloud and Retro OS. Or make your own: the brush on the page's edge opens an editor, and the page shows each change as you make it.</p>
 
 <table align="left"><tr><td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/media/rewrite-dark.webp"><img src="docs/media/rewrite-light.webp" alt="Rewriting a draft" width="380"></picture><br><b>Rewrite with AI</b><br>Improve, shorten or fix a draft in the composer.<br>Bring your own AI key.</td></tr></table>
 <table align="left"><tr><td valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/media/preview-dark.webp"><img src="docs/media/preview-light.webp" alt="A link preview" width="380"></picture><br><b>Link preview</b><br>Press and hold a link to open it<br>over your log, at any width.</td></tr></table>

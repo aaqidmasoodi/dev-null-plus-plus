@@ -71,6 +71,14 @@ The extension has three parts, trusted in this order:
 - The logger redacts anything shaped like an API key or bearer token, and drops stacks.
 - Only what a feature needs leaves the browser, only to the provider you configured, and only when you act.
 
+**Themes**
+
+- A theme is data: `#rrggbb` colours, numbers in a range and names from fixed lists. It is checked in full
+  (`src/themes/validate.ts`) wherever it comes from: storage, the first-paint copy in the page's `localStorage`, the
+  editor, or a pasted theme. Only the engine writes CSS, so no theme can carry any of its own.
+- The editor's draft is shown in its own tab only, passed through the background back to that tab's top frame, and
+  stored only when you press Save.
+
 **Link previews**
 
 - A previewed page loads in a `credentialless` frame: none of your cookies or logins for that site, and empty storage

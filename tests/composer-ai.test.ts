@@ -19,8 +19,9 @@ const connected: ExtensionState = {
       autoPictureInPicture: true,
       whoToFollowCards: true,
       themes: false,
+      themeBrush: true,
     },
-    theme: { preset: 'terminal-modern' },
+    theme: { preset: 'terminal-modern', custom: null },
   },
   ai: { provider: 'groq', model: 'llama-3.3-70b-versatile' },
 };
@@ -166,8 +167,9 @@ describe.each([
           autoPictureInPicture: true,
           whoToFollowCards: true,
           themes: false,
+          themeBrush: true,
         },
-        theme: { preset: 'terminal-modern' },
+        theme: { preset: 'terminal-modern', custom: null },
       },
     });
     composerAi.ensure();
@@ -188,8 +190,9 @@ describe.each([
           autoPictureInPicture: true,
           whoToFollowCards: true,
           themes: false,
+          themeBrush: true,
         },
-        theme: { preset: 'terminal-modern' },
+        theme: { preset: 'terminal-modern', custom: null },
       },
     });
     composerAi.ensure();

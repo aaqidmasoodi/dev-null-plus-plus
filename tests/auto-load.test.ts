@@ -19,8 +19,9 @@ const state = (autoLoadNewCommits = true): ExtensionState => ({
       autoPictureInPicture: true,
       whoToFollowCards: true,
       themes: false,
+      themeBrush: true,
     },
-    theme: { preset: 'terminal-modern' },
+    theme: { preset: 'terminal-modern', custom: null },
   },
   ai: null,
 });
