@@ -16,6 +16,7 @@ const logger = createLogger('background');
 const CONTENT_SCRIPTS = {
   hydrationProbe: '/content-scripts/hydration-probe.js',
   main: '/content-scripts/devnull.js',
+  theme: '/content-scripts/theme.js',
 } as const;
 
 /**
@@ -32,6 +33,8 @@ async function injectIntoOpenTabs(): Promise<void> {
       }
 
       try {
+        // The theme first, so an updated extension puts it back before anything else.
+        await browser.scripting.executeScript({ target: { tabId: id }, files: [CONTENT_SCRIPTS.theme] });
         await browser.scripting.executeScript({
           target: { tabId: id },
           files: [CONTENT_SCRIPTS.hydrationProbe],

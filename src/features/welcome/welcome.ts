@@ -33,6 +33,11 @@ export const WELCOME_STEPS: readonly WelcomeStep[] = [
     scene: 'intro',
   },
   {
+    title: 'Themes',
+    text: 'Five complete looks for /dev/null, from calm and dark to a 90s desktop. Pick one in settings.',
+    scene: 'themes',
+  },
+  {
     title: 'Rewrite with AI',
     text: 'Polish a draft before you commit it. Add your own AI key in settings and a button shows up in the composer.',
     scene: 'rewrite',

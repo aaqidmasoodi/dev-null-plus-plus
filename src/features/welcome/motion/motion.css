@@ -1484,3 +1484,31 @@
   font-size: 12px;
   font-weight: 500;
 }
+
+/* Themes: the page behind, the swatches to pick from, the picked one ringed. */
+.theme-page {
+  background: var(--background, Canvas);
+}
+
+.theme-sheet {
+  border-style: solid;
+}
+
+.theme-swatch {
+  display: grid;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--foreground, CanvasText) 20%, transparent);
+  border-radius: 10px;
+  background: var(--swatch-backdrop);
+  outline: 2px solid transparent;
+  outline-offset: 3px;
+}
+
+.theme-swatch::after {
+  content: '';
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  background: var(--swatch-card);
+  box-shadow: inset 0 -6px 0 var(--swatch-primary);
+}

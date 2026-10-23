@@ -31,6 +31,7 @@ import { aboutSection } from '@/features/settings-page/sections';
 import { SettingsPage } from '@/features/settings-page/settings-page';
 import { Welcome } from '@/features/welcome/welcome';
 import { WhoToFollowCards } from '@/features/who-to-follow/cards';
+import { themesSection } from '@/features/themes/settings-section';
 import { whoToFollowSection } from '@/features/who-to-follow/settings-section';
 import { peekCandidate } from '@/site/images';
 import { isPlainClick } from '@/site/navigate';
@@ -103,6 +104,7 @@ export default defineContentScript({
         aboutSection(browser.runtime.getManifest().version, () => {
           welcome.show();
         }),
+        themesSection({ store, saveSettings: writeSettings, signal: ctx.signal }),
         aiSection({
           store,
           saveSettings: writeSettings,

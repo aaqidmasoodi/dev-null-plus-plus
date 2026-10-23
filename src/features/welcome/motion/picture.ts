@@ -9,6 +9,7 @@ import { peek } from './scenes/peek';
 import { pip } from './scenes/pip';
 import { preview } from './scenes/preview';
 import { rewrite } from './scenes/rewrite';
+import { themes } from './scenes/themes';
 import { EASE, Timeline } from './timeline';
 
 /** The picture is drawn on a stage of this size and scaled to fit, so it looks the same however big the dialog is. */
@@ -27,7 +28,7 @@ export interface Scene {
   build: (timeline: Timeline) => HTMLElement;
 }
 
-export const SCENES = { intro, rewrite, preview, peek, pip, commits, follow, outro } as const satisfies Record<
+export const SCENES = { intro, themes, rewrite, preview, peek, pip, commits, follow, outro } as const satisfies Record<
   string,
   Scene
 >;

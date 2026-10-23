@@ -1,3 +1,5 @@
+import { DEFAULT_PRESET, isPresetId, type PresetId } from '@/themes/presets';
+
 /**
  * The user's /dev/null++ settings: which features are on. Kept in `browser.storage.local`, which syncs between the
  * settings page, the composer and the background as soon as it changes. Nothing secret belongs here.
@@ -22,7 +24,11 @@ export interface Settings {
     autoPictureInPicture: boolean;
     /** "Who to follow" as a stack of swipeable cards instead of rows. */
     whoToFollowCards: boolean;
+    /** Restyling the whole site with one of the theme presets. Off by default: installing never restyles the site. */
+    themes: boolean;
   };
+  /** Which theme, while themes are on. */
+  theme: { preset: PresetId };
 }
 
 export type FeatureName = keyof Settings['features'];
@@ -38,11 +44,14 @@ export const DEFAULT_SETTINGS: Settings = {
     pictureInPicture: true,
     autoPictureInPicture: true,
     whoToFollowCards: true,
+    themes: false,
   },
+  theme: { preset: DEFAULT_PRESET },
 };
 
 export function parseSettings(value: unknown): Settings {
-  const stored = typeof value === 'object' && value !== null ? (value as { features?: unknown }).features : undefined;
+  const record = typeof value === 'object' && value !== null ? (value as { features?: unknown; theme?: unknown }) : {};
+  const stored = record.features;
   const features = { ...DEFAULT_SETTINGS.features };
 
   // Only known switches, and only real booleans; anything else keeps its default.
@@ -54,7 +63,13 @@ export function parseSettings(value: unknown): Settings {
     }
   }
 
-  return { features };
+  // Only a theme that ships; anything else, including a theme from a newer or older version, is the default.
+  const preset =
+    typeof record.theme === 'object' && record.theme !== null
+      ? (record.theme as { preset?: unknown }).preset
+      : undefined;
+
+  return { features, theme: { preset: isPresetId(preset) ? preset : DEFAULT_PRESET } };
 }
 
 export async function readSettings(): Promise<Settings> {
