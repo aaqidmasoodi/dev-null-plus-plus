@@ -1,6 +1,7 @@
 import { watchFrameFailures } from '@/background/frame-failures';
 import { complete } from '@/background/providers';
 import { RateLimiter, rewrite } from '@/background/rewrite';
+import { checkForUpdate, fetchLatestRelease, storedUpdate } from '@/background/updates';
 import { readAiCredential } from '@/background/vault';
 import type { RewriteResult } from '@/core/ai';
 import { hasDataConsent } from '@/core/consent';
@@ -8,6 +9,7 @@ import { isSiteUrl, SITE_HOST_PERMISSION, SITE_MATCHES, SITE_ORIGIN } from '@/co
 import { createLogger } from '@/core/logger';
 import {
   isBackgroundMessage,
+  isCheckUpdateMessage,
   isFromSiteContentScript,
   isThemePreviewMessage,
   type ContentMessage,
@@ -98,6 +100,18 @@ function onMessage(
 
     browser.tabs.sendMessage(tab, preview, { frameId: 0 }).catch(() => {
       // The tab closed or navigated away; the draft went with it.
+    });
+
+    return false;
+  }
+
+  if (isCheckUpdateMessage(message)) {
+    void (async () => {
+      if ((await readSettings()).features.updateNotice) {
+        await checkForUpdate({ now: Date.now, latestRelease: fetchLatestRelease, ...storedUpdate });
+      }
+    })().catch((error: unknown) => {
+      logger.warn('Could not check for a new version.', error);
     });
 
     return false;

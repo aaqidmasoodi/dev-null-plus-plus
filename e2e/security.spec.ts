@@ -1,4 +1,4 @@
-import { AI_PROVIDER_ORIGINS, EXTENSION_PAGES_CSP } from '../src/core/constants';
+import { AI_PROVIDER_ORIGINS, EXTENSION_PAGES_CSP, UPDATE_ORIGIN } from '../src/core/constants';
 
 import { expect, SITE, test } from './fixtures';
 
@@ -47,14 +47,15 @@ test('pins the strict extension CSP', async ({ background }) => {
   expect(csp).toBe(EXTENSION_PAGES_CSP);
   expect(csp).not.toMatch(/unsafe|\*|data:|blob:|http:/);
 
-  // Network access is the AI providers' API origins and nothing else, and only dev-null.sh may frame our pages.
+  // Network access is the AI providers' API origins and GitHub's API (update notices), and nothing else. Only
+  // dev-null.sh may frame our pages.
   const connect = /connect-src ([^;]+)/.exec(csp ?? '')?.[1]?.split(' ');
 
-  expect(connect?.sort()).toEqual([...AI_PROVIDER_ORIGINS].sort());
+  expect(connect?.sort()).toEqual([...AI_PROVIDER_ORIGINS, UPDATE_ORIGIN].sort());
   expect(csp).toContain('frame-ancestors https://dev-null.sh;');
 });
 
-test('the service worker cannot reach anything but the AI providers', async ({ background }) => {
+test('the service worker cannot reach anything but the AI providers and GitHub', async ({ background }) => {
   const result = await background.evaluate(() =>
     fetch('https://example.com/').then(
       () => 'reached the network',

@@ -38,8 +38,11 @@ The extension has three parts, trusted in this order:
   lint. Build nodes with `createElement` and set text with `textContent`.
 - No `eval` or `new Function`. The extension CSP forbids them and lint bans them.
 - The extension's own pages run under a deny-everything CSP with Trusted Types (`EXTENSION_PAGES_CSP` in
-  `src/core/constants.ts`). Network access is limited to the AI providers' exact API origins, and only dev-null.sh may
-  frame our pages.
+  `src/core/constants.ts`). Network access is limited to the AI providers' exact API origins and GitHub's API, and
+  only dev-null.sh may frame our pages.
+- Update notices ask GitHub for the latest release at most once a day, without credentials, and keep only its version
+  number, if it is a plain one. The link shown is built from that number, never taken from the answer. They can be
+  turned off (settings, Updates).
 
 **Messages**
 

@@ -20,6 +20,7 @@ const state = (autoLoadNewCommits = true): ExtensionState => ({
       whoToFollowCards: true,
       themes: false,
       themeBrush: true,
+      updateNotice: true,
     },
     theme: { preset: 'terminal-modern', custom: null },
   },

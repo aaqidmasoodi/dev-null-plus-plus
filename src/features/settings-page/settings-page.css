@@ -357,3 +357,15 @@ dd {
   font-size: 0.8125rem;
   line-height: 1.125rem;
 }
+
+/* A line of status under a switch, like "You have the latest". */
+.note {
+  margin: 0;
+  color: var(--muted-foreground, GrayText);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.note a {
+  color: var(--primary, LinkText);
+}

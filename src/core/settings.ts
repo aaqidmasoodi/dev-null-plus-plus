@@ -29,6 +29,8 @@ export interface Settings {
     themes: boolean;
     /** The brush on the edge of the page that opens the theme editor, while themes are on. */
     themeBrush: boolean;
+    /** Checking GitHub once a day for a new version, and saying so on the page. */
+    updateNotice: boolean;
   };
   theme: {
     /** Which theme, while themes are on: a preset, or the user's own. */
@@ -55,6 +57,7 @@ export const DEFAULT_SETTINGS: Settings = {
     whoToFollowCards: true,
     themes: false,
     themeBrush: true,
+    updateNotice: true,
   },
   theme: { preset: DEFAULT_PRESET, custom: null },
 };
