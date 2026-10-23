@@ -55,6 +55,8 @@ npm run media -- rewrite --measure .preset --at 0  # where pieces are on the 512
 
 Change a scene in `src/features/welcome/motion/scenes`, then run `npm run media` and commit the new pictures.
 
+`npm run media:themes` redraws `docs/media/themes-*.webp`: each theme on the live site, with every person and post swapped for made-up ones. Run `npm run build` first.
+
 ## How it works
 
 ```
