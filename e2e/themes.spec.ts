@@ -197,6 +197,9 @@ test('picked on the settings page, a theme applies at once, and Off brings the s
 
   await expect(picker).toBeVisible();
   await expect(themeOf(page)).resolves.toBeNull();
+  // Five presets, and no card for your own theme until you make one.
+  await expect(picker.getByRole('radio')).toHaveCount(5);
+  await expect(picker.getByText('Your own theme.')).toBeHidden();
 
   await picker.getByRole('radio', { name: /Neo Tokyo/ }).click();
   await expect.poll(() => themeOf(page)).toBe('neo-tokyo');

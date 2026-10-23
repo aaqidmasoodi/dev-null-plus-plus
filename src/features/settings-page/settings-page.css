@@ -265,6 +265,11 @@ dd {
   transition: border-color 150ms;
 }
 
+/* Your own theme, before there is one. */
+.theme[hidden] {
+  display: none;
+}
+
 .theme:hover {
   border-color: var(--muted-foreground, GrayText);
 }
