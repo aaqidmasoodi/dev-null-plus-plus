@@ -1490,8 +1490,11 @@
   background: var(--background, Canvas);
 }
 
+/* Its text in the picked theme's colour too, not the page's: a dark theme's card under the site's light page would
+   otherwise hold dark text. */
 .theme-sheet {
   border-style: solid;
+  color: var(--foreground, CanvasText);
 }
 
 .theme-swatch {
