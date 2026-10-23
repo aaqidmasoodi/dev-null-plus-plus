@@ -138,7 +138,8 @@ test('can be switched off on the settings page', async ({ page, context }) => {
   await expect(page.getByRole('button', { name: '2 new commits' })).toBeVisible();
 });
 
-test('picks up the real pill on the live log', async ({ page }) => {
+// Tagged slow: CI runs it on a machine of its own, so its wait does not hold up the rest.
+test('picks up the real pill on the live log', { tag: '@slow' }, async ({ page }) => {
   // The pill only shows when somebody commits, which on a quiet day may not happen within the test's patience.
   test.slow();
   await page.goto(SITE);
