@@ -243,3 +243,112 @@ dd {
 .frame[hidden] {
   display: none;
 }
+
+/* The theme picker: each theme drawn small in its own colours, with its name and what it is. */
+.themes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr));
+  gap: 0.75rem;
+}
+
+.theme {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.5rem;
+  border: 1px solid var(--border, GrayText);
+  border-radius: var(--radius, 0.5rem);
+  background: transparent;
+  color: var(--foreground, CanvasText);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 150ms;
+}
+
+.theme:hover {
+  border-color: var(--muted-foreground, GrayText);
+}
+
+.theme[aria-checked='true'] {
+  border-color: var(--primary, Highlight);
+  box-shadow: 0 0 0 1px var(--primary, Highlight);
+}
+
+.theme:focus-visible {
+  outline: 2px solid var(--ring, Highlight);
+  outline-offset: 2px;
+}
+
+/* While themes are off, the picker shows what is there to pick, a little quieter. */
+.themes[data-off] .theme {
+  opacity: 0.75;
+}
+
+.theme-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 5.5rem;
+  margin-bottom: 0.25rem;
+  border-radius: calc(var(--radius, 0.5rem) - 2px);
+  background: var(--preview-backdrop);
+  overflow: hidden;
+}
+
+.theme-card {
+  display: grid;
+  gap: 0.3rem;
+  width: 72%;
+  padding: 0.45rem 0.5rem;
+  border: var(--preview-border-width) solid var(--preview-border);
+  border-radius: var(--preview-radius);
+  background: var(--preview-card);
+  box-shadow: var(--preview-shadow);
+}
+
+.theme-bar {
+  display: none;
+}
+
+/* Windows get their title bar. */
+.theme-preview[data-post='window'] .theme-card {
+  padding-top: 0.25rem;
+}
+
+.theme-preview[data-post='window'] .theme-bar {
+  display: block;
+  height: 0.5rem;
+  margin: 0 -0.25rem;
+  background: var(--preview-chrome);
+}
+
+.theme-line {
+  height: 0.3rem;
+  width: 85%;
+  border-radius: 999px;
+  background: var(--preview-text);
+}
+
+.theme-line-muted {
+  width: 60%;
+  background: var(--preview-muted);
+}
+
+.theme-button {
+  width: 2.25rem;
+  height: 0.6rem;
+  border-radius: var(--preview-button-radius);
+  background: var(--preview-primary);
+}
+
+.theme-name {
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.25rem;
+}
+
+.theme-tagline {
+  color: var(--muted-foreground, GrayText);
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+}

@@ -18,7 +18,9 @@ const connected: ExtensionState = {
       pictureInPicture: true,
       autoPictureInPicture: true,
       whoToFollowCards: true,
+      themes: false,
     },
+    theme: { preset: 'terminal-modern' },
   },
   ai: { provider: 'groq', model: 'llama-3.3-70b-versatile' },
 };
@@ -163,7 +165,9 @@ describe.each([
           pictureInPicture: true,
           autoPictureInPicture: true,
           whoToFollowCards: true,
+          themes: false,
         },
+        theme: { preset: 'terminal-modern' },
       },
     });
     composerAi.ensure();
@@ -183,7 +187,9 @@ describe.each([
           pictureInPicture: true,
           autoPictureInPicture: true,
           whoToFollowCards: true,
+          themes: false,
         },
+        theme: { preset: 'terminal-modern' },
       },
     });
     composerAi.ensure();

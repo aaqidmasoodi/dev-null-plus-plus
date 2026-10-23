@@ -106,6 +106,52 @@ const checks: [string, (driver: WebDriver) => Promise<void>][] = [
       await driver.switchTo().defaultContent();
     },
   ],
+  [
+    'puts a theme on from the settings page, keeps it through a reload, and takes it off',
+    async (driver) => {
+      const theme = (): Promise<string | null> =>
+        driver.executeScript(() => document.documentElement.getAttribute('data-dnpp-theme'));
+      const click = (selector: string): Promise<void> =>
+        driver.executeScript((target: string) => {
+          for (const host of document.querySelectorAll('[data-dnpp]')) {
+            const button = host.shadowRoot?.querySelector<HTMLElement>(target);
+
+            if (button) {
+              button.click();
+
+              return;
+            }
+          }
+
+          throw new Error(`No ${target}`);
+        }, selector);
+
+      await driver.get(`${SITE}#dev-null-plus-plus`);
+      await driver.wait(async () => (await ourHeadings(driver)).includes('Themes'), 20_000);
+      await click('[data-theme="neo-tokyo"]');
+      await driver.wait(async () => (await theme()) === 'neo-tokyo', 10_000);
+
+      // Back on the log, after a reload: there from the start, and drawing commits as speech bubbles.
+      await driver.get(SITE);
+      assert.equal(await theme(), 'neo-tokyo');
+      await driver.wait(until.elementLocated(By.css('[data-test="commit"]')), 30_000);
+      assert.equal(
+        await driver.executeScript(() => {
+          const content = document.querySelector(
+            '[data-test="commit"] > div > div:has(a > time):not(:has([data-reply]))',
+          );
+
+          return content === null ? null : getComputedStyle(content).borderTopWidth;
+        }),
+        '3px',
+      );
+
+      await driver.get(`${SITE}#dev-null-plus-plus`);
+      await driver.wait(async () => (await ourHeadings(driver)).includes('Themes'), 20_000);
+      await click('[data-feature="themes"]:first-child');
+      await driver.wait(async () => (await theme()) === null, 10_000);
+    },
+  ],
 ];
 
 const options = new firefox.Options().windowSize({ width: 1280, height: 900 });
