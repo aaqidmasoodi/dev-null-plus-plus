@@ -60,4 +60,9 @@ export default defineConfig({
     // are signed in to dev-null.sh); WXT reloads the extension on every change.
     disabled: true,
   },
+  zip: {
+    // The sources zip is for Firefox's reviewers to rebuild the extension. The README's animations and local test
+    // output play no part in that, and were most of its size.
+    excludeSources: ['docs/media/**', 'test-results/**', 'playwright-report/**'],
+  },
 });
