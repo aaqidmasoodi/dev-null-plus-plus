@@ -152,6 +152,57 @@ const checks: [string, (driver: WebDriver) => Promise<void>][] = [
       await driver.wait(async () => (await theme()) === null, 10_000);
     },
   ],
+  [
+    'previews a theme being edited through the background, and saves it',
+    async (driver) => {
+      const theme = (): Promise<string | null> =>
+        driver.executeScript(() => document.documentElement.getAttribute('data-dnpp-theme'));
+      const primary = (): Promise<string> =>
+        driver.executeScript(() => getComputedStyle(document.documentElement).getPropertyValue('--primary').trim());
+      /** Clicks a button in the editor, or with `value`, types it into a field. */
+      const inEditor = (selector: string, value?: string): Promise<void> =>
+        driver.executeScript(
+          (target: string, text: string | null) => {
+            const element = document
+              .querySelector('[data-dnpp="theme-editor"]')
+              ?.shadowRoot?.querySelector<HTMLInputElement>(target);
+
+            if (!element) {
+              throw new Error(`No ${target}`);
+            }
+
+            if (text === null) {
+              element.click();
+            } else {
+              element.value = text;
+              element.dispatchEvent(new Event('input'));
+            }
+          },
+          selector,
+          value ?? null,
+        );
+
+      await driver.get(`${SITE}#dev-null-plus-plus`);
+      await driver.wait(async () => (await ourHeadings(driver)).includes('Themes'), 20_000);
+      await driver.executeScript(() => {
+        for (const host of document.querySelectorAll('[data-dnpp]')) {
+          host.shadowRoot?.querySelector<HTMLElement>('[data-action="edit-theme"]')?.click();
+        }
+      });
+      // Shown while themes are still off: the draft went to the theme script and back.
+      await driver.wait(async () => (await theme()) === 'custom', 10_000);
+
+      await inEditor('input[aria-label="Accent, as hex"]', '#0a7d4f');
+      await driver.wait(async () => (await primary()) === '#0a7d4f', 10_000);
+      await inEditor('.footer .primary');
+      await driver.sleep(500);
+      await inEditor('button[aria-label="Close"]');
+
+      await driver.get(SITE);
+      assert.equal(await theme(), 'custom');
+      assert.equal(await primary(), '#0a7d4f');
+    },
+  ],
 ];
 
 const options = new firefox.Options().windowSize({ width: 1280, height: 900 });

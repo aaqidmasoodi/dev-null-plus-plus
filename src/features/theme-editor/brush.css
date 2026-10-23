@@ -1,0 +1,52 @@
+/*
+ * The brush that opens the theme editor: a tab on the left edge of the window, in the theme's own tokens, which inherit
+ * through the shadow boundary.
+ */
+
+:host {
+  all: initial;
+  position: fixed;
+  top: 50%;
+  left: 0;
+  z-index: 35;
+  translate: 0 -50%;
+}
+
+button {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.75rem;
+  padding: 0 0 0 0.125rem;
+  border: 1px solid var(--border, GrayText);
+  border-left: 0;
+  border-radius: 0 var(--radius, 0.5rem) var(--radius, 0.5rem) 0;
+  background: var(--card, Canvas);
+  color: var(--muted-foreground, GrayText);
+  box-shadow: 0 6px 18px -8px rgb(0 0 0 / 0.35);
+  cursor: pointer;
+  transition:
+    width 150ms ease,
+    color 150ms ease;
+}
+
+button:hover {
+  width: 2.625rem;
+  color: var(--primary, Highlight);
+}
+
+button:focus-visible {
+  outline: 2px solid var(--ring, Highlight);
+  outline-offset: 2px;
+}
+
+svg {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button {
+    transition: none;
+  }
+}

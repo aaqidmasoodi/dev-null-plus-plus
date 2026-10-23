@@ -3,7 +3,7 @@ import { observeAttributes, observeDom } from '@/core/dom';
 import { waitForHydration } from '@/core/hydration';
 import { createLogger } from '@/core/logger';
 import { parseRewriteResult } from '@/core/ai';
-import { isContentMessage, isFromOwnBackground, type RewriteMessage } from '@/core/messages';
+import { isContentMessage, isFromOwnBackground, type RewriteMessage, type ThemePreviewMessage } from '@/core/messages';
 import { writeSettings, type SettingsStore } from '@/core/settings';
 import { ComposerAi } from '@/features/ai-rewrite/composer-ai';
 import { AutoLoadNewCommits } from '@/features/auto-load/auto-load';
@@ -31,6 +31,8 @@ import { aboutSection } from '@/features/settings-page/sections';
 import { SettingsPage } from '@/features/settings-page/settings-page';
 import { Welcome } from '@/features/welcome/welcome';
 import { WhoToFollowCards } from '@/features/who-to-follow/cards';
+import { ThemeBrush } from '@/features/theme-editor/brush';
+import { ThemeEditor } from '@/features/theme-editor/editor';
 import { themesSection } from '@/features/themes/settings-section';
 import { whoToFollowSection } from '@/features/who-to-follow/settings-section';
 import { peekCandidate } from '@/site/images';
@@ -97,6 +99,34 @@ export default defineContentScript({
       return;
     }
 
+    // The theme editor, opened by the brush on the page's edge or from settings. Its draft goes to the theme script
+    // through the background, for this tab only.
+    const brushRef: { current: ThemeBrush | null } = { current: null };
+    const themeEditor = new ThemeEditor({
+      store,
+      saveSettings: writeSettings,
+      preview: (theme) => {
+        browser.runtime.sendMessage({ type: 'dnpp:theme-preview', theme } satisfies ThemePreviewMessage).catch(() => {
+          // The extension was reloaded; the theme script went with it.
+        });
+      },
+      onClose: () => {
+        brushRef.current?.sync();
+      },
+      signal: ctx.signal,
+    });
+    const brush = new ThemeBrush({
+      store,
+      onOpen: () => {
+        themeEditor.open();
+      },
+      isEditorOpen: () => themeEditor.isOpen,
+      signal: ctx.signal,
+    });
+
+    brushRef.current = brush;
+    brush.sync();
+
     // A short tour of what the extension adds, the first time the site opens after installing.
     const welcome = new Welcome({ onOpenSettings: openSettings, signal: ctx.signal });
     const settingsPage = new SettingsPage({
@@ -104,7 +134,15 @@ export default defineContentScript({
         aboutSection(browser.runtime.getManifest().version, () => {
           welcome.show();
         }),
-        themesSection({ store, saveSettings: writeSettings, signal: ctx.signal }),
+        themesSection({
+          store,
+          saveSettings: writeSettings,
+          openEditor: () => {
+            themeEditor.open();
+            brush.sync();
+          },
+          signal: ctx.signal,
+        }),
         aiSection({
           store,
           saveSettings: writeSettings,
@@ -292,6 +330,8 @@ export default defineContentScript({
       imagePeek.destroy();
       pip.destroy();
       welcome.destroy();
+      themeEditor.destroy();
+      brush.destroy();
       whoToFollow.destroy();
       removeTakeover();
     });

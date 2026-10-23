@@ -34,7 +34,7 @@ export const WELCOME_STEPS: readonly WelcomeStep[] = [
   },
   {
     title: 'Themes',
-    text: 'Five complete looks for /dev/null, from calm and dark to a 90s desktop. Pick one in settings.',
+    text: 'Five complete looks for /dev/null, from calm and dark to a 90s desktop. Or make your own with the brush.',
     scene: 'themes',
   },
   {

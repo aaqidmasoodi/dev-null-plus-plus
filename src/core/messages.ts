@@ -1,5 +1,6 @@
 import { isInstruction, isRewriteMode, MAX_DRAFT_LENGTH, type RewriteMode } from './ai';
 import { isSiteUrl, SITE_ORIGIN } from './constants';
+import { parseCustomTheme, type CustomTheme } from '@/themes/custom';
 
 /**
  * Every message between the extension's parts goes through here. Each side checks both what was sent (its shape) and
@@ -112,4 +113,29 @@ export function isFromSiteContentScript(sender: Sender, extensionId: string): bo
   const fromSite = sender.origin === undefined ? isSiteUrl(sender.url) : sender.origin === SITE_ORIGIN;
 
   return fromSite && isSiteUrl(sender.tab.url);
+}
+
+/**
+ * The theme editor's draft, shown on its own tab while the editor is open, and `null` once it closes. The editor's
+ * content script sends it to the background, which hands it straight back to the theme script in the same tab and
+ * frame: the two scripts cannot reach each other directly, and a page can neither send nor read either message.
+ */
+export interface ThemePreviewMessage {
+  type: 'dnpp:theme-preview';
+  theme: CustomTheme | null;
+}
+
+export function isThemePreviewMessage(value: unknown): value is ThemePreviewMessage {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+
+  const message = value as Record<string, unknown>;
+
+  return (
+    Object.keys(message).sort().join() === 'theme,type' &&
+    message.type === 'dnpp:theme-preview' &&
+    // A draft is checked in full, like a saved theme.
+    (message.theme === null || parseCustomTheme(message.theme) !== null)
+  );
 }

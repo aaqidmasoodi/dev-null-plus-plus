@@ -6,7 +6,13 @@ import type { RewriteResult } from '@/core/ai';
 import { hasDataConsent } from '@/core/consent';
 import { isSiteUrl, SITE_HOST_PERMISSION, SITE_MATCHES, SITE_ORIGIN } from '@/core/constants';
 import { createLogger } from '@/core/logger';
-import { isBackgroundMessage, isFromSiteContentScript, type ContentMessage } from '@/core/messages';
+import {
+  isBackgroundMessage,
+  isFromSiteContentScript,
+  isThemePreviewMessage,
+  type ContentMessage,
+  type ThemePreviewMessage,
+} from '@/core/messages';
 import { SETTINGS_HASH } from '@/core/route';
 import { readSettings } from '@/core/settings';
 
@@ -80,7 +86,24 @@ function onMessage(
   sender: Browser.runtime.MessageSender,
   sendResponse: (response: RewriteResult) => void,
 ): boolean {
-  if (!isFromSiteContentScript(sender, browser.runtime.id) || !isBackgroundMessage(message)) {
+  if (!isFromSiteContentScript(sender, browser.runtime.id)) {
+    return false;
+  }
+
+  const tab = sender.tab?.id;
+
+  // The theme editor's draft goes straight back to the theme script in the same tab's top frame, and nowhere else.
+  if (isThemePreviewMessage(message) && tab !== undefined) {
+    const preview: ThemePreviewMessage = { type: 'dnpp:theme-preview', theme: message.theme };
+
+    browser.tabs.sendMessage(tab, preview, { frameId: 0 }).catch(() => {
+      // The tab closed or navigated away; the draft went with it.
+    });
+
+    return false;
+  }
+
+  if (!isBackgroundMessage(message)) {
     return false;
   }
 
