@@ -100,12 +100,17 @@ test.describe('settings', () => {
 
     const stored = await background.evaluate(() =>
       (
-        globalThis as unknown as { chrome: { storage: { local: { get: () => Promise<unknown> } } } }
+        globalThis as unknown as { chrome: { storage: { local: { get: () => Promise<Record<string, unknown>> } } } }
       ).chrome.storage.local.get(),
     );
+    const { update, ...rest } = stored;
 
     // Besides which provider is connected, only that the welcome was seen.
-    expect(stored).toEqual({ welcomed: true, aiStatus: { provider: 'openai', model: 'gpt-5-mini' } });
+    expect(rest).toEqual({ welcomed: true, aiStatus: { provider: 'openai', model: 'gpt-5-mini' } });
+    // And, once the daily update check has run, when it ran and the latest version on GitHub. Nothing else.
+    expect(update === undefined ? [] : Object.keys(update as object).sort()).toEqual(
+      update === undefined ? [] : ['checkedAt', 'latest'],
+    );
     expect(JSON.stringify(stored)).not.toContain(KEY);
 
     await frame.getByRole('button', { name: 'Disconnect' }).click();
