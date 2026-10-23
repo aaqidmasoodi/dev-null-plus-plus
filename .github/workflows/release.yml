@@ -59,3 +59,13 @@ jobs:
           done
           gh release upload "$TAG" .output/*-chrome.zip .output/*-firefox.zip .output/signed/*.xpi \
             --repo "$GITHUB_REPOSITORY" --clobber
+      - name: Add the install steps to the release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          body="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body --jq .body)"
+          if ! grep -q '^## Install' <<<"$body"; then
+            printf '%s\n\n%s\n' "$body" "$(cat docs/INSTALL.md)" > .output/notes.md
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file .output/notes.md
+          fi

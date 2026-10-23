@@ -22,13 +22,20 @@ export const AI_PROVIDER_ORIGINS = [
  */
 export const OPTIONAL_HOST_PERMISSIONS = ['https://api.groq.com/*'];
 
+/**
+ * Where releases are published. The background asks GitHub's API for the latest one, at most once a day, while update
+ * notices are on (settings, Updates). The only place the extension connects to besides the AI providers.
+ */
+export const REPOSITORY = 'aaqidmasoodi/dev-null-plus-plus';
+export const UPDATE_ORIGIN = 'https://api.github.com';
+
 /** The extension page that holds the key-entry form, framed into the settings page. */
 export const VAULT_PAGE = 'vault.html';
 
 /**
  * Content Security Policy for the extension's own pages and its service worker. Deny everything, then allow only our
- * own bundled scripts, styles and images. Network access is limited to the AI providers' API origins, and nothing
- * else. Only dev-null.sh may frame our pages, and only the key-entry page is exposed to it at all. Trusted Types make
+ * own bundled scripts, styles and images. Network access is limited to the AI providers' API origins and GitHub's API,
+ * for update notices, and nothing else. Only dev-null.sh may frame our pages, and only the key-entry page is exposed to it at all. Trusted Types make
  * any HTML-string sink throw.
  */
 export function extensionPagesCsp({ devServer }: { devServer?: string } = {}): string {
@@ -41,7 +48,7 @@ export function extensionPagesCsp({ devServer }: { devServer?: string } = {}): s
     "style-src 'self'",
     "img-src 'self'",
     "font-src 'self'",
-    `connect-src ${[...AI_PROVIDER_ORIGINS, ...dev].join(' ')}`,
+    `connect-src ${[...AI_PROVIDER_ORIGINS, UPDATE_ORIGIN, ...dev].join(' ')}`,
     "object-src 'none'",
     "base-uri 'none'",
     "form-action 'none'",

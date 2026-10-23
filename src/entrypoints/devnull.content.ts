@@ -34,6 +34,8 @@ import { WhoToFollowCards } from '@/features/who-to-follow/cards';
 import { ThemeBrush } from '@/features/theme-editor/brush';
 import { ThemeEditor } from '@/features/theme-editor/editor';
 import { themesSection } from '@/features/themes/settings-section';
+import { UpdateNotice } from '@/features/update-notice/notice';
+import { updatesSection } from '@/features/update-notice/settings-section';
 import { whoToFollowSection } from '@/features/who-to-follow/settings-section';
 import { peekCandidate } from '@/site/images';
 import { isPlainClick } from '@/site/navigate';
@@ -127,12 +129,29 @@ export default defineContentScript({
     brushRef.current = brush;
     brush.sync();
 
+    // A notice at the top of the page when a new version is out on GitHub.
+    const updateNotice = new UpdateNotice({
+      store,
+      version: browser.runtime.getManifest().version,
+      signal: ctx.signal,
+    });
+
+    updateNotice.start().catch((error: unknown) => {
+      logger.warn('Could not read update information.', error);
+    });
+
     // A short tour of what the extension adds, the first time the site opens after installing.
     const welcome = new Welcome({ onOpenSettings: openSettings, signal: ctx.signal });
     const settingsPage = new SettingsPage({
       sections: [
         aboutSection(browser.runtime.getManifest().version, () => {
           welcome.show();
+        }),
+        updatesSection({
+          store,
+          saveSettings: writeSettings,
+          version: browser.runtime.getManifest().version,
+          signal: ctx.signal,
         }),
         themesSection({
           store,
@@ -331,6 +350,7 @@ export default defineContentScript({
       pip.destroy();
       welcome.destroy();
       themeEditor.destroy();
+      updateNotice.destroy();
       brush.destroy();
       whoToFollow.destroy();
       removeTakeover();

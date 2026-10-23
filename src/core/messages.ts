@@ -139,3 +139,17 @@ export function isThemePreviewMessage(value: unknown): value is ThemePreviewMess
     (message.theme === null || parseCustomTheme(message.theme) !== null)
   );
 }
+
+/** Asks the background to look for a new version, if it has not today. Sent by the content script as a page opens. */
+export interface CheckUpdateMessage {
+  type: 'dnpp:check-update';
+}
+
+export function isCheckUpdateMessage(value: unknown): value is CheckUpdateMessage {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    Object.keys(value).join() === 'type' &&
+    (value as { type?: unknown }).type === 'dnpp:check-update'
+  );
+}
