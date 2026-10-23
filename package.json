@@ -1,7 +1,7 @@
 {
   "name": "dev-null-plus-plus",
   "description": "Extra powers for dev-null.sh, the social network for developers.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "license": "MIT",
