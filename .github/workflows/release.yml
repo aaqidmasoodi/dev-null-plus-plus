@@ -70,13 +70,31 @@ jobs:
             mv "$signed" "$firefox"
           done
           gh release upload "$TAG" "$chrome" "$firefox" --repo "$GITHUB_REPOSITORY" --clobber
-      - name: Add the install steps to the release notes
+      - name: Write the download links and install steps on the release page
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.event.release.tag_name }}
         run: |
+          shopt -s nullglob
+          version="$(node -p "require('./package.json').version")"
+          signed=(.output/dev-null-plus-plus-*-firefox.xpi)
+          # docs/RELEASE_NOTES.md has the steps for a signed and an unsigned Firefox file; keep the one that applies.
+          if [ ${#signed[@]} -gt 0 ]; then
+            firefox="dev-null-plus-plus-$version-firefox.xpi"; drop=unsigned; keep=signed
+          else
+            firefox="dev-null-plus-plus-$version-firefox.zip"; drop=signed; keep=unsigned
+          fi
+          sed -e "s/{{version}}/$version/g" -e "s#{{repo}}#$GITHUB_REPOSITORY#g" -e "s/{{firefox_file}}/$firefox/g" \
+            -e "\|<!-- firefox:$drop -->|,\|<!-- /firefox:$drop -->|d" \
+            -e "\|<!-- firefox:$keep -->|d" -e "\|<!-- /firefox:$keep -->|d" \
+            docs/RELEASE_NOTES.md > .output/steps.md
+          # Anything written when publishing stays, above the steps.
           body="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body --jq .body)"
-          if ! grep -q '^## Install' <<<"$body"; then
-            printf '%s\n\n%s\n' "$body" "$(cat docs/INSTALL.md)" > .output/notes.md
+          if ! grep -q '^## Download' <<<"$body"; then
+            : > .output/notes.md
+            if [ -n "$body" ]; then
+              printf '%s\n\n' "$body" > .output/notes.md
+            fi
+            cat .output/steps.md >> .output/notes.md
             gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file .output/notes.md
           fi

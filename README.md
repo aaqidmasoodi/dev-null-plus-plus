@@ -18,24 +18,36 @@ Each has a switch under **/dev/null++** in the site's menu. All are on from the 
 
 ## Install
 
-Download from the [latest release](https://github.com/aaqidmasoodi/dev-null-plus-plus/releases/latest).
+Go to the [latest release](https://github.com/aaqidmasoodi/dev-null-plus-plus/releases/latest) and download one file, under **Assets**:
 
-**Chrome, Edge, Brave**
+| Browser             | File to download                                   |
+| ------------------- | -------------------------------------------------- |
+| Chrome, Edge, Brave | the one ending in `-chrome.zip`                    |
+| Firefox             | the one ending in `-firefox.xpi` or `-firefox.zip` |
 
-1. Download `dev-null-plus-plus-<version>-chrome.zip` and unzip it into a folder you will keep.
-2. Open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked** and pick that folder.
+Ignore **Source code (zip)** and **Source code (tar.gz)**. GitHub adds them to every release; they are the project's code, not the extension.
 
-To update, unzip the new version over the same folder, then click the extension's reload button. Your settings and AI key stay. A different folder counts as a new extension and starts afresh.
+**Chrome, Edge or Brave**
 
-**Firefox 140+**
+1. Unzip the file you downloaded. On Windows, right-click it and choose **Extract All**. On a Mac, double-click it. Keep the folder somewhere it will stay, like Documents.
+2. Open `chrome://extensions` (in Edge, `edge://extensions`; in Brave, `brave://extensions`).
+3. Turn on **Developer mode**, top right.
+4. Click **Load unpacked** and choose the unzipped folder.
+5. Open [dev-null.sh](https://dev-null.sh). **/dev/null++** is in the menu, under Settings.
 
-1. Download `dev-null-plus-plus-<version>-firefox.xpi`.
-2. Drag it into a Firefox window and confirm.
+**Firefox, with a `.xpi` file**
 
-To update, do the same with the new `.xpi`. Your settings stay.
+1. Open the file, or drag it into a Firefox window, and click **Add**.
 
-If a release only has `-firefox.zip` (not signed by Mozilla yet), open `about:debugging`, **This Firefox**, **Load Temporary Add-on** and pick the zip. Firefox removes it when it restarts.
+**Firefox, with a `.zip` file** (not yet signed by Mozilla)
 
-Once it is installed, /dev/null++ tells you at the top of dev-null.sh when a new version is out.
+1. Do not unzip it. Open `about:debugging#/runtime/this-firefox`.
+2. Click **Load Temporary Add-on…** and choose the file.
+
+Firefox removes a temporary add-on when it restarts, so repeat these two steps after a restart.
+
+**Updating**
+
+dev-null.sh tells you at the top of the page when a new version is out. In Chrome, Edge or Brave, unzip the new file into the **same folder** as before, replacing the files, then click the reload arrow on /dev/null++ in `chrome://extensions`. Your settings and AI key stay. In Firefox, install the new file the same way as the first.
 
 [Development](docs/DEVELOPMENT.md) · [Security](SECURITY.md) · [Logo licence](LOGO.md) · MIT
