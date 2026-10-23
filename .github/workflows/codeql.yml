@@ -3,7 +3,9 @@ name: CodeQL
 on:
   push:
     branches: [main]
+  # Pull requests that only change docs or pictures have no code to scan. Everything is still scanned on main and weekly.
   pull_request:
+    paths-ignore: ['**/*.md', 'docs/**', 'LICENSE']
   schedule:
     - cron: '41 5 * * 1'
 

@@ -43,13 +43,19 @@ jobs:
           if-no-files-found: error
 
   e2e:
-    name: End-to-end against live dev-null.sh (${{ matrix.shard }}/4)
+    name: End-to-end against live dev-null.sh (${{ matrix.part }})
     runs-on: ubuntu-latest
-    # Split over four machines at once, which is most of the time CI takes.
+    # Split over five machines at once, which is most of the time CI takes: four share the tests, and the one test that
+    # waits for real people to commit (tagged @slow) gets the fifth, so its wait does not hold the others up.
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        include:
+          - { part: 1/4, args: --shard=1/4 --grep-invert @slow }
+          - { part: 2/4, args: --shard=2/4 --grep-invert @slow }
+          - { part: 3/4, args: --shard=3/4 --grep-invert @slow }
+          - { part: 4/4, args: --shard=4/4 --grep-invert @slow }
+          - { part: slow, args: --grep @slow }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -65,11 +71,11 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - run: npx playwright install chromium
-      - run: npm run test:e2e -- --shard=${{ matrix.shard }}/4
+      - run: npm run test:e2e -- ${{ matrix.args }}
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
         with:
-          name: playwright-traces-${{ matrix.shard }}
+          name: playwright-traces-${{ strategy.job-index }}
           path: test-results
 
   firefox:
