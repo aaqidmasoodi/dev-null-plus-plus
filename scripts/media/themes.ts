@@ -93,7 +93,7 @@ async function anonymise(page: Page): Promise<void> {
         });
         // A note that the words were translated, which they no longer are.
         post.querySelectorAll<HTMLElement>('div, p').forEach((element) => {
-          if (element.children.length <= 3 && /^Translated from /.test(element.textContent.trim())) {
+          if (element.children.length <= 3 && element.textContent.trim().startsWith('Translated from ')) {
             element.style.display = 'none';
           }
         });
