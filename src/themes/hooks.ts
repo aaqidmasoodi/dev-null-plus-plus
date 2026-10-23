@@ -57,6 +57,39 @@ export const PROFILE_HEADER = `${MAIN} header:has([data-test="profile-live-avata
 /** Composers (components/commit-composer.tsx). */
 export const COMPOSER = '[data-test="commit-composer"]';
 
+/**
+ * What people put inside a commit, each drawn as a small card of its own: a link's preview or embed, a quoted commit,
+ * pictures, a poll's options, a code block (components/code-block.tsx) and a live stream.
+ */
+export const LINK_PREVIEW = '[data-test="link-preview"]';
+export const QUOTED_POST = '[data-test="quoted-commit"]';
+export const POST_IMAGES = '[data-test="commit-images"]';
+export const CODE_BLOCK = `${POST_BODY} div:has(> pre)`;
+export const INLINE_CODE = `${POST_BODY} code:not(pre code)`;
+export const POLL_OPTIONS = '[data-test="commit-poll"] :is(li, label)';
+export const EMBEDS = [
+  LINK_PREVIEW,
+  '[data-test="link-embed"]',
+  QUOTED_POST,
+  POST_IMAGES,
+  CODE_BLOCK,
+  POLL_OPTIONS,
+  '[data-test="live-stream-card"]',
+].join(', ');
+
+/** A page's tabs, under its title: Latest and Following, Commits and Replies (components/page-tabs.tsx). */
+export const PAGE_TABS = `${MAIN} nav[aria-label] > a[href]`;
+/** Options drawn as one control, like Settings, Appearance (components/segmented-control.tsx). */
+export const SEGMENTED = '[role="radiogroup"]:has(> button[role="radio"])';
+export const SEGMENTS = '[role="radiogroup"] > button[role="radio"]';
+/** Small rounded labels: a level, a profile's badges, a reaction. */
+export const CHIPS = '[data-test="level-chip"], [data-earned-badge], [data-test="reaction-chip"]';
+
+/** Direct messages, docked to the bottom of the window (components/chat/chat-dock.tsx). */
+export const CHAT_DOCK = '[data-test="chat-dock"]';
+/** Toasts (sonner). */
+export const TOAST = '[data-sonner-toast]';
+
 /** shadcn/ui building blocks, which carry data-slot (components/ui). */
 export const BUTTON = '[data-slot="button"]';
 export const AVATAR = '[data-slot="avatar"]';
@@ -70,6 +103,9 @@ export const OVERLAYS = [
 export const TOOLTIP = '[data-slot="tooltip-content"]';
 export const DIALOG = '[data-slot="dialog-content"]';
 export const DIALOG_TITLE = '[data-slot="dialog-title"]';
+export const DIALOG_OVERLAY = '[data-slot="dialog-overlay"]';
+export const CHECKBOX = '[data-slot="checkbox"]';
+export const SKELETON = '[data-slot="skeleton"]';
 export const MENU_ITEMS =
   '[data-slot="dropdown-menu-item"], [data-slot="context-menu-item"], [data-slot="select-item"]';
 
@@ -96,7 +132,24 @@ export const HOOKS = {
   STAR_BUTTON,
   ASIDE_SECTION,
   ASIDE_HEADING,
-  ASIDE_PROFILE,
   BUTTON,
   AVATAR,
+  PAGE_TABS,
+} as const;
+
+/** Hooks that are only there when someone posted one, or on some pages: checked to be valid, not to match. */
+export const OCCASIONAL_HOOKS = {
+  ASIDE_PROFILE,
+  PROFILE_HEADER,
+  EMBEDS,
+  INLINE_CODE,
+  SEGMENTS,
+  CHIPS,
+  CHAT_DOCK,
+  TOAST,
+  OVERLAYS,
+  DIALOG_OVERLAY,
+  CHECKBOX,
+  SKELETON,
+  MENU_ITEMS,
 } as const;

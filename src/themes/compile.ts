@@ -347,6 +347,173 @@ ${root} :is(${hook.POST_ACTIONS}) :is(button):hover { background-color: transpar
   }
 }
 
+/** What people put inside a commit (link previews, quotes, pictures, polls, code), drawn to match the commit. */
+function embeds(theme: ThemeDefinition, root: string): string {
+  const cards = `${root} :is(${hook.EMBEDS})`;
+  let css = `
+${root} :is(${hook.INLINE_CODE}) { border-radius: min(var(--dnpp-radius), 4px); }`;
+
+  switch (theme.motifs.post) {
+    case 'plain':
+      css += `
+${cards} { border-radius: min(var(--dnpp-radius), 12px); }`;
+      break;
+
+    case 'bubble':
+      // A smaller card in the bubble, with the bubble's outline, a little thinner.
+      css += `
+${cards} {
+  border: max(1px, calc(var(--dnpp-border) - 1px)) solid var(--border);
+  border-radius: calc(var(--dnpp-radius) * 0.6);
+}`;
+      break;
+
+    case 'window':
+      // Sunken into the window, as a field is. A border rather than a shadow, so pictures cannot cover it.
+      css += `
+${cards} {
+  border: 2px solid;
+  border-color: var(--dnpp-edge-dark) var(--dnpp-edge-light) var(--dnpp-edge-light) var(--dnpp-edge-dark);
+  border-radius: 0;
+}
+${root} :is(${hook.INLINE_CODE}) { border-radius: 0; }`;
+      break;
+
+    case 'article':
+      // Square, thin-ruled boxes; a quoted commit is set in like a quotation.
+      css += `
+${cards} { border-radius: 0; }
+${root} :is(${hook.QUOTED_POST}) { border-width: 0 0 0 3px; border-color: var(--border); background-color: var(--muted); }`;
+      break;
+  }
+
+  return css;
+}
+
+/** Tabs, segmented controls, chips and checkboxes, drawn like the theme's buttons. */
+function widgets(theme: ThemeDefinition, root: string): string {
+  const tabs = `${root} :is(${hook.PAGE_TABS})`;
+  const segments = `${root} :is(${hook.SEGMENTS})`;
+  const chips = `${root} :is(${hook.CHIPS})`;
+  const checkbox = `${root} :is(${hook.CHECKBOX})`;
+  let css = `
+${root} :is(${hook.SEGMENTED}) { border-radius: min(var(--dnpp-radius), 10px); }
+${segments} { border-radius: min(calc(var(--dnpp-radius) - 4px), 6px); }
+${root} :is(${hook.SKELETON}) { border-radius: min(var(--dnpp-radius), 8px); }`;
+
+  switch (theme.motifs.controls) {
+    case 'flat':
+      break;
+
+    case 'outlined':
+      css += `
+${tabs} { font-family: var(--dnpp-display); font-weight: var(--dnpp-display-weight); }
+${tabs}[aria-current="page"] > span:last-child:not(:first-child) { height: 4px; border-radius: 4px 4px 0 0; }
+${root} :is(${hook.SEGMENTED}) { border: var(--dnpp-border) solid var(--dnpp-ink); }
+${chips} { border: 2px solid var(--dnpp-ink); }
+${checkbox} { border: 2px solid var(--dnpp-ink); border-radius: 6px; }`;
+      break;
+
+    case 'pill':
+      // The current tab is a soft pill rather than an underline.
+      css += `
+${tabs} { font-family: var(--dnpp-display); font-weight: var(--dnpp-display-weight); }
+${tabs} > span:first-child { margin-block: 6px; padding: 8px 16px; border-radius: 999px; }
+${tabs}[aria-current="page"] > span:first-child { background-color: var(--primary-soft); color: var(--primary); }
+${tabs}[aria-current="page"] > span:last-child:not(:first-child) { display: none; }
+${tabs}:hover { background-color: transparent; }
+${tabs}:hover > span:first-child { background-color: var(--accent); }
+${root} :is(${hook.SEGMENTED}), ${segments}, ${segments} > span { border-radius: 999px; }
+${checkbox} { border-radius: 6px; }`;
+      break;
+
+    case 'bevel':
+      // Tabs on a 90s dialog: the current one raised and joined to the page, the rest flat behind it.
+      css += `
+${tabs} { font-family: var(--dnpp-display); }
+${tabs}[aria-current="page"] {
+  background-color: var(--card);
+  box-shadow:
+    inset 1px 1px 0 0 var(--dnpp-edge-light),
+    inset -1px 0 0 0 var(--dnpp-ink),
+    inset -2px 0 0 0 var(--dnpp-edge-dark);
+}
+${tabs}[aria-current="page"] > span:last-child:not(:first-child) { display: none; }
+${root} :is(${hook.SEGMENTED}) {
+  border: 0;
+  border-radius: 0;
+  box-shadow:
+    inset 1px 1px 0 0 var(--dnpp-edge-dark),
+    inset -1px -1px 0 0 var(--dnpp-edge-light);
+}
+${segments}, ${segments} > span { border-radius: 0; }
+${segments}[aria-checked="true"] {
+  box-shadow:
+    inset -1px -1px 0 0 var(--dnpp-ink),
+    inset 1px 1px 0 0 var(--dnpp-edge-light),
+    inset -2px -2px 0 0 var(--dnpp-edge-dark);
+}
+${chips} {
+  border: 0;
+  border-radius: 0;
+  box-shadow:
+    inset -1px -1px 0 0 var(--dnpp-ink),
+    inset 1px 1px 0 0 var(--dnpp-edge-light),
+    inset -2px -2px 0 0 var(--dnpp-edge-dark);
+}
+${checkbox} {
+  border: 0;
+  border-radius: 0;
+  box-shadow:
+    inset 1px 1px 0 0 var(--dnpp-edge-dark),
+    inset -1px -1px 0 0 var(--dnpp-edge-light),
+    inset 2px 2px 0 0 var(--dnpp-ink);
+}
+${checkbox}:not([data-state="checked"]) { background-color: var(--card); }
+${root} :is(${hook.MENU_ITEMS}) { border-radius: 0; }
+${root} :is(${hook.MENU_ITEMS})[data-highlighted] {
+  background-color: var(--dnpp-chrome-start);
+  color: var(--dnpp-chrome-foreground);
+}`;
+      break;
+  }
+
+  return css;
+}
+
+/** Floating surfaces: toasts, the docked messages, and the shade behind a dialog. */
+function surfaces(theme: ThemeDefinition, root: string): string {
+  const shadowed = theme.depth.overlay.kind !== 'none';
+  let css = `
+${root} :is(${hook.DIALOG_OVERLAY}) { background-color: rgb(var(--dnpp-ink-rgb) / 0.6); }
+${root} :is(${hook.TOAST}) {
+  border: var(--dnpp-border) solid var(--border);
+  border-radius: var(--dnpp-radius);
+  font-family: var(--font-sans);${shadowed ? '\n  box-shadow: var(--dnpp-overlay-shadow);' : ''}
+}
+${root} :is(${hook.CHAT_DOCK}) {
+  border-width: var(--dnpp-border);
+  border-bottom-width: 0;
+  border-radius: var(--dnpp-radius) var(--dnpp-radius) 0 0;${shadowed ? '\n  box-shadow: var(--dnpp-overlay-shadow);' : ''}
+}`;
+
+  if (theme.motifs.post === 'window') {
+    css += `
+${root} :is(${hook.CHAT_DOCK}) {
+  border: 0;
+  border-radius: 0;
+  padding: 3px 3px 0;
+  box-shadow:
+    inset -1px 0 0 0 var(--dnpp-ink),
+    inset 1px 1px 0 0 var(--dnpp-edge-light),
+    inset -2px 0 0 0 var(--dnpp-edge-dark)${shadowed ? ',\n    var(--dnpp-overlay-shadow)' : ''};
+}
+${root} :is(${hook.TOAST}) { border-radius: 0; }`;
+  }
+
+  return css;
+}
+
 function star(theme: ThemeDefinition, root: string): string {
   if (theme.motifs.star === 'star') {
     return '';
@@ -632,6 +799,9 @@ export function compileTheme(theme: ThemeDefinition): string {
     base(theme, root),
     controls(theme, root),
     posts(theme, root),
+    embeds(theme, root),
+    widgets(theme, root),
+    surfaces(theme, root),
     star(theme, root),
     nav(theme, root),
     headings(theme, root),
