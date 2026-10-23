@@ -24,6 +24,25 @@ import { SiteTooltip, TOOLTIP_ROLE } from './tooltip';
 
 export const AI_BUTTON_ROLE = 'ai-button';
 export const AI_PANEL_ROLE = 'ai-panel';
+const TOOLBAR_STYLE_ROLE = 'ai-toolbar-style';
+
+/**
+ * Our button takes room in the toolbar, and the site's link card picker is the one thing there that shrinks to make
+ * room, down to a squashed icon when a restored draft's stash label is showing too. So a row holding our button wraps
+ * instead, as the site's toolbar does on a phone: the picker keeps its icons, and whatever no longer fits (the stash
+ * label) goes to the next line.
+ */
+function toolbarStyle(): HTMLStyleElement {
+  const row = `div:has(> ${ownedSelector(AI_BUTTON_ROLE)})`;
+  const style = el('style', {}, [
+    `${row} { flex-wrap: wrap; row-gap: 0.5rem; }`,
+    `${row} > [data-test="link-card-button"] { flex: 1 1 3.625rem; max-width: max-content; }`,
+  ]);
+
+  markOwned(style, TOOLBAR_STYLE_ROLE);
+
+  return style;
+}
 
 /** Lucide's "sparkles", to sit with the composer's other lucide icons. */
 export const SPARKLES_ICON = [
@@ -528,6 +547,10 @@ export class ComposerAi {
       return;
     }
 
+    if (document.head.querySelector(ownedSelector(TOOLBAR_STYLE_ROLE)) === null) {
+      document.head.append(toolbarStyle());
+    }
+
     const seen = new Set<HTMLElement>();
 
     for (const parts of findComposers()) {
@@ -560,6 +583,7 @@ export class ComposerAi {
 
     this.#instances.clear();
     this.#removeStrays();
+    document.head.querySelector(ownedSelector(TOOLBAR_STYLE_ROLE))?.remove();
   }
 
   /** Removes buttons and panels an earlier copy of the extension left behind. */

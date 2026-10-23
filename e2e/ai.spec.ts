@@ -198,6 +198,55 @@ test.describe('composer', () => {
     await expect(tooltip).toBeHidden();
   });
 
+  test('never has the site’s link card picker drawn over it', async ({ page, context, background }) => {
+    await fakeOpenAi(context);
+    await context.route(FIXTURE, (route) =>
+      route.fulfill({
+        contentType: 'text/html',
+        // The log's composer, at the width it has beside the sidebars, with a draft holding links that was restored
+        // after a refresh: the link card picker and the stash label both show. Sized inline, as the site's CSS would.
+        body: `<!doctype html><html><head><title>Composer</title><style>
+            .row { display: flex; width: 331px; align-items: center; column-gap: 4px; }
+            .row button { display: inline-flex; align-items: center; width: 36px; height: 36px; padding: 0; }
+            .row svg { flex-shrink: 0; width: 20px; height: 20px; }
+            .row [data-test="link-card-button"] { width: auto; min-width: 0; justify-content: center; gap: 6px; padding: 0 8px; white-space: nowrap; }
+            .row [data-test="link-card-button"] svg { width: 16px; height: 16px; }
+            .truncate { overflow: hidden; text-overflow: ellipsis; }
+          </style></head><body><div id="app"><main data-main>
+          <form data-test="commit-composer">
+            <textarea id="body" name="body" maxlength="4500"></textarea>
+            <div style="display: flex">
+              <div class="row">
+                <span><button type="button" data-test="attach-images-button"><svg></svg></button></span>
+                <span><button type="button" data-test="add-poll-button"><svg></svg></button></span>
+                <span><button type="button" aria-expanded="false" data-test="schedule-toggle"><svg></svg></button></span>
+                <button type="button" data-test="link-card-button"><svg></svg><span class="truncate">github.com/nunomaduro/dev-null.sh</span><svg></svg></button>
+                <span><button type="button" data-test="preview-toggle"><svg></svg></button></span>
+                <span style="margin-left: 8px; white-space: nowrap" data-test="stash-label">stash@{0} <button type="button" style="width: auto">drop</button></span>
+              </div>
+              <button type="submit">Commit</button>
+            </div>
+          </form></main></div></body></html>`,
+      }),
+    );
+    await connect(context, background);
+    await page.goto(FIXTURE);
+    await expect(aiButton(page)).toBeVisible();
+
+    const picker = page.locator('[data-test="link-card-button"]');
+    // Squashed, the picker centres its icons and they spill out over our button. They must fit inside it, clear of ours.
+    const squashed = await picker.evaluate((button) => button.scrollWidth > button.clientWidth);
+    const ai = await aiButton(page).boundingBox();
+    const icon = await picker.locator('svg').first().boundingBox();
+    const box = await picker.boundingBox();
+    const stash = await page.locator('[data-test="stash-label"]').boundingBox();
+
+    expect(squashed).toBe(false);
+    expect(icon?.x).toBeGreaterThan((ai?.x ?? 0) + (ai?.width ?? 0));
+    // What no longer fits goes to the next line, as the site's own toolbar does on a phone.
+    expect(stash?.y).toBeGreaterThan((box?.y ?? 0) + (box?.height ?? 0));
+  });
+
   test('leaves gibberish alone and says so, without any of the model’s words', async ({
     page,
     context,
