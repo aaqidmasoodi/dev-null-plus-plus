@@ -1,6 +1,6 @@
 import type { Page, Worker } from '@playwright/test';
 
-import { HOOKS } from '../src/themes/hooks';
+import { HOOKS, OCCASIONAL_HOOKS } from '../src/themes/hooks';
 
 import { expect, SITE, test } from './fixtures';
 
@@ -32,15 +32,30 @@ test('every hook the themes use still matches on the live site', async ({ page }
   await page.goto(SITE);
   await expect(page.locator('[data-test="commit"]').first()).toBeVisible();
 
-  // Only on a profile page, or only when signed in.
-  const elsewhere = new Set(['ASIDE_PROFILE']);
   const missing = await page.evaluate((hooks) => {
     return Object.entries(hooks)
       .filter(([, selector]) => document.querySelector(selector) === null)
       .map(([name]) => name);
   }, HOOKS);
 
-  expect(missing.filter((name) => !elsewhere.has(name))).toEqual([]);
+  expect(missing).toEqual([]);
+
+  // The rest are only there sometimes, so they only have to be selectors this browser accepts.
+  const invalid = await page.evaluate((hooks) => {
+    return Object.entries(hooks)
+      .filter(([, selector]) => {
+        try {
+          document.querySelector(selector);
+
+          return false;
+        } catch {
+          return true;
+        }
+      })
+      .map(([name]) => name);
+  }, OCCASIONAL_HOOKS);
+
+  expect(invalid).toEqual([]);
 });
 
 for (const preset of PRESETS) {
